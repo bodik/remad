@@ -15,7 +15,7 @@ import sys
 import tempfile
 
 logger = logging.getLogger()
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s '+os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)-15s '+os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
 
 
 
@@ -360,11 +360,18 @@ def parse_arguments():
 if __name__ == "__main__":
 
 	# startup 
-	remoteuser = os.getenv("REMOTE_USER", "UNAUTHENTICATED")
-	logger.debug("authenticated as %s" % remoteuser)
+	remoteuser = os.getenv("REMOTE_USER", "unauthenticated")
+	logger.info("authenticated as %s" % remoteuser)
+
 	args = parse_arguments()
+
 	with open("/etc/remadd.conf", "r") as f:
-		config = json.loads(f.read())
+		stripcomments = "\n".join((l for l in f.readlines() if not l.lstrip().startswith(("#", "//"))))
+		config = json.loads(stripcomments)
+		if "loglevel" in config: logger.setLevel(config["loglevel"].upper())
+
+
+
 
 	# process command	
 	if (args.command == "conftest"):

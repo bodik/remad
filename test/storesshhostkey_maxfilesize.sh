@@ -11,10 +11,8 @@ kinit -k -t /etc/krb5.keytab host/$(facter fqdn)
 while true; do
 
 	TRY=$(( $MIN + (($MAX - $MIN) / 2) ))
-	echo "DEBUG: attempt to transfer $TRY bytes"
-
 	dd if=/dev/zero of=${TESTFILE} bs=$TRY count=1 1>/dev/null 2>/dev/null
-	remad storesshhostkey --host $(facter fqdn) --filename ${TESTFILE} 1>/dev/null 2>/dev/null
+	remad --debug storesshhostkey --host $(facter fqdn) --filename ${TESTFILE} 1>/dev/null 2>/dev/null
 
 	if [ $? -eq 0 ]; then
 		MIN=$TRY

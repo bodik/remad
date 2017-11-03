@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 logger = logging.getLogger()
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s '+os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)-15s '+os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
 
 
 
@@ -27,6 +27,7 @@ def remctlcall(cmd):
 def parse_arguments():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--server", default=socket.getfqdn(), help="remctladmd server")
+	parser.add_argument("--debug", action="store_true", default=False, help="debug output")
 
 	subparsers = parser.add_subparsers(dest='command')
 
@@ -53,6 +54,8 @@ def parse_arguments():
 
 if __name__ == "__main__":
 	args = parse_arguments()
+	if args.debug:
+		logger.setLevel(logging.DEBUG)
 
 
 
@@ -71,7 +74,9 @@ if __name__ == "__main__":
 
 	if (args.command == "storesshhostkey"):
 		# getconf ARG_MAX, xargs --show-limits, base64 encoding
-		if (os.stat(args.filename).st_size > 98000):
+		filesize = os.stat(args.filename).st_size
+		logger.debug("stored filesize %d" % filesize)
+		if (filesize > 98000):
 			raise Exception("file too big for remctl transfer")
 		with open(args.filename, "r") as f:
 			data = base64.b64encode(f.read())

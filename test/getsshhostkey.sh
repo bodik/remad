@@ -10,7 +10,7 @@ dd if=/dev/urandom bs=100 count=1 2>/dev/null | sha256sum > ${TESTFILE_SRC}
 
 # push
 kinit -k -t /etc/krb5.keytab host/$(facter fqdn)
-remad getsshhostkey --host $(facter fqdn) --filename $(basename ${TESTFILE_SRC}) --outfile ${TESTFILE_DST}
+remad --debug getsshhostkey --host $(facter fqdn) --filename $(basename ${TESTFILE_SRC}) --outfile ${TESTFILE_DST}
 if [ $? -ne 0 ]; then
 	rreturn 1 "remad failed"
 fi

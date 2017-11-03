@@ -14,7 +14,7 @@ done
 
 # create
 kinit -k -t /etc/krb5.keytab host/$(facter fqdn)
-remad createkeytab --host $(facter fqdn) --services host ftp pbs nfs --outfile ${KEYTAB}
+remad --debug createkeytab --host $(facter fqdn) --services host ftp pbs nfs --outfile ${KEYTAB}
 if [ $? -ne 0 ]; then
 	rreturn 1 "remad failed"
 fi
