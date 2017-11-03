@@ -103,6 +103,7 @@ class Kadmin:
 		return guessed_realm["realm"]
 
 
+	# TODO: remove backward compatibility after upgrade
 	@staticmethod
 	def check_output(*popenargs, **kwargs):
 		""" implementation taken from python2.7, because lack of the methon in python2.6 version """

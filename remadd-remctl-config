@@ -1,1 +1,4 @@
-remadd ALL /opt/remad/remadd anyuser:auth
+#remadd ALL /opt/remad/remadd anyuser:auth
+
+# TODO: remove backward compatibility after upgrade
+remadd ALL /opt/remad/remadd ANYUSER
