@@ -124,8 +124,8 @@ class Kadmin:
 
 class KadminMit(Kadmin):
 	def exec_kadmin(self, command):
-		cmd = "/usr/bin/kadmin -r {realm} -p {admin_principal} -k -t {admin_keytab} {command}".format(
-			realm = self.realm, admin_principal = self.admin["principal"], admin_keytab = self.admin["keytab"], command = command)
+		cmd = "{kadmin} -r {realm} -p {admin_principal} -k -t {admin_keytab} {command}".format(
+			kadmin = config["binaries"][ config["realm"][self.realm]["type"] ], realm = self.realm, admin_principal = self.admin["principal"], admin_keytab = self.admin["keytab"], command = command)
 		logger.debug(cmd)
 		return Kadmin.check_output(shlex.split(cmd))
 
@@ -157,8 +157,8 @@ class KadminMit(Kadmin):
 
 class KadminHeimdal(Kadmin):
 	def exec_kadmin(self, command):
-		cmd = "/usr/bin/kadmin.heimdal --realm={realm} --principal={admin_principal} --keytab={admin_keytab} {command}".format(
-			realm = self.realm, admin_principal = self.admin["principal"], admin_keytab = self.admin["keytab"], command = command)
+		cmd = "{kadmin} --realm={realm} --principal={admin_principal} --keytab={admin_keytab} {command}".format(
+			kadmin = config["binaries"][ config["realm"][self.realm]["type"] ], realm = self.realm, admin_principal = self.admin["principal"], admin_keytab = self.admin["keytab"], command = command)
 		logger.debug(cmd)
 		return Kadmin.check_output(shlex.split(cmd))
 

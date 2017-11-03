@@ -1,15 +1,22 @@
 {
+	"ssh-key-storage": "/var/ssh-key-storage",
+	"binaries": { 
+		"KadminMit": "/usr/bin/kadmin",
+		"KadminHeimdal": "/usr/bin/kadmin.heimdal"
+	},
+
+
 	"realm": {
 		"realm1": { "keytab": "/file1", "principal": "princ@realm1", "type": "KadminImpl" },
 		"RSYSLOG3": { "keytab": "/etc/krb5.keytab", "principal": "host/<%= @fqdn %>@RSYSLOG3", "type": "<% case @kdc_impl %><% when "mit" %>KadminMit<% when "heimdal" %>KadminHeimdal<% end %>" }
 	},
-	"ssh-key-storage": "/var/ssh-key-storage",
 
 
 	"groups": {
 		"groupname1": ["member1", "member2"],
 		"group_selftest": ["host/<%= @fqdn %>@RSYSLOG3"]
 	},
+
 
 	"acls": {
 		"createkeytab": [
