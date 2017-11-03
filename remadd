@@ -15,7 +15,7 @@ import sys
 import tempfile
 
 logger = logging.getLogger()
-logging.basicConfig(level=logging.INFO, format='%(asctime)-15s '+os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
+logging.basicConfig(level=logging.INFO, format=os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
 
 
 
@@ -86,7 +86,8 @@ class Kadmin:
 		# cannot be parsed by ConfigParser due to realm syntax	
 		guessed_realm = {"domain": "", "realm": None}
 		section = None
-		with open(path) as f: data = [x.strip() for x in f.read().splitlines()]
+		with open(path) as f: 
+			data = [x.strip() for x in f.read().splitlines()]
 		for line in data:
 			m = re.search("\[(?P<section>.*)\]",line)
 			if m:
@@ -360,26 +361,39 @@ if __name__ == "__main__":
 
 	# startup 
 	args = parse_arguments()
-	with open("/etc/remadd.conf", "r") as f:
-		stripcomments = "\n".join((l for l in f.readlines() if not l.lstrip().startswith(("#", "//"))))
+	try:
+		with open("/etc/remadd.conf", "r") as f:
+			data = f.readlines()
+		stripcomments = "\n".join((l for l in data if not l.lstrip().startswith(("#", "//"))))
 		config = json.loads(stripcomments)
-		if ("debug" in config) and (config["debug"] == True): logger.setLevel(logging.DEBUG)
+		if "debug" not in config:
+			config["debug"] = False
+		if config["debug"]:
+			logger.setLevel(logging.DEBUG)
+	except Exception as e:
+		if config["debug"]: raise
+		logger.error("parse config: %s" % e.message)
+		sys.exit(1)
+
 
 	remoteuser = os.getenv("REMOTE_USER", "unauthenticated")
 	logger.debug("authenticated as %s" % remoteuser)
 
 
+	try:
+		# process command	
+		if (args.command == "conftest"):
+			logger.info("configuration ok")
 
-	# process command	
-	if (args.command == "conftest"):
-		logger.info("configuration ok")
+		if (args.command == "createkeytab"):
+			createkeytab(args.host, args.services)
 
-	if (args.command == "createkeytab"):
-		createkeytab(args.host, args.services)
+		if (args.command == "storesshhostkey"):
+			storesshhostkey(args.host, args.filename, args.data)
 
-	if (args.command == "storesshhostkey"):
-		storesshhostkey(args.host, args.filename, args.data)
-
-	if (args.command == "getsshhostkey"):
-		getsshhostkey(args.host, args.filename)
-
+		if (args.command == "getsshhostkey"):
+			getsshhostkey(args.host, args.filename)
+	except Exception as e:
+		if config["debug"]: raise
+		logger.error("processing command: %s" % e.message)
+		sys.exit(1)
