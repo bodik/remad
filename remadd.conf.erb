@@ -1,25 +1,35 @@
 {
+	# directory of key storage
 	"ssh-key-storage": "/var/ssh-key-storage",
+
+	# path for kadmin binaries for realm type implementation
 	"binaries": { 
 		"KadminMit": "/usr/bin/kadmin",
 		"KadminHeimdal": "/usr/bin/kadmin.heimdal"
 	},
-	"loglevel": "debug",
+
+	# don't use on production
+	"debug": true,
 
 
+	# list of administrative credentials and types of available realms
 	"realm": {
 		"realm1": { "keytab": "/file1", "principal": "princ@realm1", "type": "KadminImpl" },
 		"RSYSLOG3": { "keytab": "/etc/krb5.keytab", "principal": "host/<%= @fqdn %>@RSYSLOG3", "type": "<% case @kdc_impl %><% when "mit" %>KadminMit<% when "heimdal" %>KadminHeimdal<% end %>" }
 	},
 
 
+	# list of authorization groups
 	"groups": {
 		"groupname1": ["member1", "member2"],
 		"group_selftest": ["host/<%= @fqdn %>@RSYSLOG3"]
 	},
 
 
+	# authorization rules for commands
 	"acls": {
+		# "acommand": [ { "group": "authzgroupname", "param1": "regex" } ],
+
 		"createkeytab": [
 			{ "group": "groupname2", "host": "regex", "services": "regex" },
 			{ "group": "group_selftest", "host": "^ztook[0-9]?.meta.zcu.cz$", "services": "^(host|ftp|nfs|pbs)$" }
@@ -32,6 +42,5 @@
 		"getsshhostkey": [
 			{ "group": "group_selftest", "host": "^ztook[0-9]?.meta.zcu.cz$", "filename": "test_remad_.*" }
 		]
-
 	}
 }

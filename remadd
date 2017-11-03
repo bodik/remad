@@ -205,7 +205,6 @@ class KadminHeimdal(Kadmin):
 ###
 
 
-
 class NotAuthorizedException(Exception):
 	""" raised when user is not authorized to perform requested action """
 
@@ -368,7 +367,7 @@ if __name__ == "__main__":
 	with open("/etc/remadd.conf", "r") as f:
 		stripcomments = "\n".join((l for l in f.readlines() if not l.lstrip().startswith(("#", "//"))))
 		config = json.loads(stripcomments)
-		if "loglevel" in config: logger.setLevel(config["loglevel"].upper())
+		if ("debug" in config) and (config["debug"] == True): logger.setLevel(logging.DEBUG)
 
 
 
