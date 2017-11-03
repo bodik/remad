@@ -36,7 +36,7 @@ def is_valid_service(service):
 	return True
 
 def is_valid_filename(filename):
-	if not re.match("[a-zA-Z0-9/_\.\-]+", filename):
+	if not re.match("[a-zA-Z0-9_\.\-]+", filename):
 		raise ValueError("invalid filename")
 	return True
 
