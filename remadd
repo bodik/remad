@@ -26,17 +26,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)-15s '+os.path.basenam
 ###
 
 def is_valid_host(host):
-	if not re.match("[a-zA-Z0-9@\.\-]+", host):
+	if not re.match("^[a-zA-Z0-9@\.\-]+$", host):
 		raise ValueError("invalid host")
 	return True
 
 def is_valid_service(service):
-	if not re.match("[a-zA-Z]+", service):
+	if not re.match("^[a-zA-Z]+$", service):
 		raise ValueError("invalid service")
 	return True
 
 def is_valid_filename(filename):
-	if not re.match("[a-zA-Z0-9_\.\-]+", filename):
+	if not re.match("^[a-zA-Z0-9_\.\-]+$", filename):
 		raise ValueError("invalid filename")
 	return True
 
@@ -359,16 +359,14 @@ def parse_arguments():
 if __name__ == "__main__":
 
 	# startup 
-	remoteuser = os.getenv("REMOTE_USER", "unauthenticated")
-	logger.info("authenticated as %s" % remoteuser)
-
 	args = parse_arguments()
-
 	with open("/etc/remadd.conf", "r") as f:
 		stripcomments = "\n".join((l for l in f.readlines() if not l.lstrip().startswith(("#", "//"))))
 		config = json.loads(stripcomments)
 		if ("debug" in config) and (config["debug"] == True): logger.setLevel(logging.DEBUG)
 
+	remoteuser = os.getenv("REMOTE_USER", "unauthenticated")
+	logger.debug("authenticated as %s" % remoteuser)
 
 
 
