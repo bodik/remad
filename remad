@@ -1,4 +1,5 @@
 #!/usr/bin/python
+""" remad -- remadd (remctl admin tool) client """
 
 import argparse
 import base64
@@ -9,22 +10,25 @@ import subprocess
 import sys
 
 logger = logging.getLogger()
-logging.basicConfig(level=logging.INFO, format='%(asctime)-15s '+os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
+logging.basicConfig(level=logging.INFO, format=os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
 
 
 
 
 
+def remctlcall(command):
+	""" wraps command with remctl client call and executes """
 
-def remctlcall(cmd):
-	cmd = ["/usr/bin/remctl", args.server, "remadd"] + cmd
-	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	(proc_stdout, proc_stderr) = proc.communicate()
-	return (proc, proc_stdout, proc_stderr)
+	command = ["/usr/bin/remctl", args.server, "remadd"] + command
+	command_handle = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	(command_stdout, command_stderr) = command_handle.communicate()
+	return (command_handle, command_stdout, command_stderr)
 
 
 
 def parse_arguments():
+	""" parses command line arguments """
+
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--server", default=socket.getfqdn(), help="remctladmd server")
 	parser.add_argument("--debug", action="store_true", default=False, help="debug output")
@@ -46,20 +50,21 @@ def parse_arguments():
 	parser_getsshhostkey.add_argument("--outfile", required=True, help="write fetched file to path")
 
 
-        # finish parsing        
-        args = parser.parse_args()
-        return args
+        # finish parsing
+	return parser.parse_args()
 
 
 
 if __name__ == "__main__":
+
+	# startup
 	args = parse_arguments()
 	if args.debug:
 		logger.setLevel(logging.DEBUG)
 
 
-
-	if (args.command == "createkeytab"):
+	# process commands
+	if args.command == "createkeytab":
 		cmd = ["createkeytab", "--host", args.host, "--services"] + args.services
 		(proc, proc_stdout, proc_stderr) = remctlcall(cmd)
 		sys.stderr.write(proc_stderr)
@@ -67,16 +72,16 @@ if __name__ == "__main__":
 		# data of created keytab are transfered via stdout encoded in base64
 		with open(args.outfile, "w") as f:
 			f.write(base64.b64decode(proc_stdout))
-		if (proc.returncode == 0):
+		if proc.returncode == 0:
 			logger.debug("keytab for %s created in %s" % (args.host, args.outfile))
 
 
 
-	if (args.command == "storesshhostkey"):
+	if args.command == "storesshhostkey":
 		# getconf ARG_MAX, xargs --show-limits, base64 encoding
 		filesize = os.stat(args.filename).st_size
 		logger.debug("stored filesize %d" % filesize)
-		if (filesize > 98000):
+		if filesize > 98000:
 			raise Exception("file too big for remctl transfer")
 		with open(args.filename, "r") as f:
 			data = base64.b64encode(f.read())
@@ -88,7 +93,7 @@ if __name__ == "__main__":
 
 
 
-	if (args.command == "getsshhostkey"):
+	if args.command == "getsshhostkey":
 		cmd = ["getsshhostkey", "--host", args.host, "--filename", args.filename]
 		(proc, proc_stdout, proc_stderr) = remctlcall(cmd)
 		sys.stderr.write(proc_stderr)
@@ -96,9 +101,8 @@ if __name__ == "__main__":
 		# data of keyfile are transfered via stdout encoded in base64
 		with open(args.outfile, "w") as f:
 			f.write(base64.b64decode(proc_stdout))
-		if (proc.returncode == 0):
+		if proc.returncode == 0:
 			logger.debug("file %s for %s created in %s" % (args.filename, args.host, args.outfile))
 
 
 	sys.exit(proc.returncode)
-
