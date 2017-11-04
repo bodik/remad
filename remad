@@ -9,20 +9,79 @@ import socket
 import subprocess
 import sys
 
-logger = logging.getLogger()
-logging.basicConfig(level=logging.INFO, format=os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
 
 
 
 
+class Remad(object):
+	""" remad client class """
 
-def remctlcall(command):
-	""" wraps command with remctl client call and executes """
+	def __init__(self, server):
+		self.log = logging.getLogger()
+		self.server = server
 
-	command = ["/usr/bin/remctl", args.server, "remadd"] + command
-	command_handle = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	(command_stdout, command_stderr) = command_handle.communicate()
-	return (command_handle, command_stdout, command_stderr)
+
+
+	def remctlcall(self, cmd):
+		""" wraps command with remctl client call and executes """
+
+		cmd = ["/usr/bin/remctl", self.server, "remadd"] + cmd
+		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		(proc_stdout, proc_stderr) = proc.communicate()
+		return (proc, proc_stdout, proc_stderr)
+
+
+
+	def createkeytab(self, host, services, outfile):
+		""" creates keytab for services/host to outfile """
+
+		cmd = ["createkeytab", "--host", host, "--services"] + services
+		(proc, proc_stdout, proc_stderr) = self.remctlcall(cmd)
+		sys.stderr.write(proc_stderr)
+
+		# data of created keytab are transfered via stdout encoded in base64
+		with open(outfile, "w") as ftmp:
+			ftmp.write(base64.b64decode(proc_stdout))
+		self.log.debug("keytab for %s created in %s", host, outfile)
+
+		return proc.returncode
+
+
+
+	def storesshhostkey(self, host, filename):
+		""" stores filename for host at keyserver """
+
+		# getconf ARG_MAX, xargs --show-limits, base64 encoding
+		filesize = os.stat(filename).st_size
+		self.log.debug("stored filesize %d", filesize)
+		if filesize > 98000:
+			raise Exception("file too big for remctl transfer")
+
+		with open(filename, "r") as ftmp:
+			data = base64.b64encode(ftmp.read())
+
+		cmd = ["storesshhostkey", "--host", host, "--filename", os.path.basename(filename), "--data", data]
+		(proc, proc_stdout, proc_stderr) = self.remctlcall(cmd)
+		sys.stderr.write(proc_stderr)
+		sys.stdout.write(proc_stdout)
+		self.log.debug("file %s stored for %s", filename, host)
+
+		return proc.returncode
+
+
+
+	def getsshhostkey(self, host, filename, outfile):
+		""" retrieves filename for host from keyserver """
+
+		cmd = ["getsshhostkey", "--host", host, "--filename", filename]
+		(proc, proc_stdout, proc_stderr) = self.remctlcall(cmd)
+		sys.stderr.write(proc_stderr)
+
+		with open(outfile, "w") as ftmp:
+			ftmp.write(base64.b64decode(proc_stdout))
+		self.log.debug("file %s for %s created in %s", filename, host, outfile)
+
+		return proc.returncode
 
 
 
@@ -49,60 +108,33 @@ def parse_arguments():
 	parser_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
 	parser_getsshhostkey.add_argument("--outfile", required=True, help="write fetched file to path")
 
-
         # finish parsing
 	return parser.parse_args()
 
 
 
-if __name__ == "__main__":
+def main():
+	""" main """
 
-	# startup
+	logging.basicConfig(level=logging.INFO, format=os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
 	args = parse_arguments()
 	if args.debug:
-		logger.setLevel(logging.DEBUG)
+		logging.basicConfig(level=logging.DEBUG)
 
 
-	# process commands
+	remad = Remad(args.server)
 	if args.command == "createkeytab":
-		cmd = ["createkeytab", "--host", args.host, "--services"] + args.services
-		(proc, proc_stdout, proc_stderr) = remctlcall(cmd)
-		sys.stderr.write(proc_stderr)
+		ret = remad.createkeytab(args.host, args.services, args.outfile)
+	elif args.command == "storesshhostkey":
+		ret = remad.storesshhostkey(args.host, args.filename)
+	elif args.command == "getsshhostkey":
+		ret = remad.getsshhostkey(args.host, args.filename, args.outfile)
+	else:
+		ret = 127
 
-		# data of created keytab are transfered via stdout encoded in base64
-		with open(args.outfile, "w") as f:
-			f.write(base64.b64decode(proc_stdout))
-		if proc.returncode == 0:
-			logger.debug("keytab for %s created in %s" % (args.host, args.outfile))
-
-
-
-	if args.command == "storesshhostkey":
-		# getconf ARG_MAX, xargs --show-limits, base64 encoding
-		filesize = os.stat(args.filename).st_size
-		logger.debug("stored filesize %d" % filesize)
-		if filesize > 98000:
-			raise Exception("file too big for remctl transfer")
-		with open(args.filename, "r") as f:
-			data = base64.b64encode(f.read())
-
-		cmd = ["storesshhostkey", "--host", args.host, "--filename", os.path.basename(args.filename), "--data", data]
-		(proc, proc_stdout, proc_stderr) = remctlcall(cmd)
-		sys.stderr.write(proc_stderr)
-		sys.stdout.write(proc_stdout)
+	return ret
 
 
 
-	if args.command == "getsshhostkey":
-		cmd = ["getsshhostkey", "--host", args.host, "--filename", args.filename]
-		(proc, proc_stdout, proc_stderr) = remctlcall(cmd)
-		sys.stderr.write(proc_stderr)
-
-		# data of keyfile are transfered via stdout encoded in base64
-		with open(args.outfile, "w") as f:
-			f.write(base64.b64decode(proc_stdout))
-		if proc.returncode == 0:
-			logger.debug("file %s for %s created in %s" % (args.filename, args.host, args.outfile))
-
-
-	sys.exit(proc.returncode)
+if __name__ == "__main__":
+	sys.exit(main())
