@@ -1,15 +1,14 @@
 #!/usr/bin/python
+"""remadd -- remctl admin daemon"""
 
 import argparse
 import base64
-import ConfigParser
 import inspect
 import json
 import logging
 import os
 import re
 import shlex
-import StringIO
 import subprocess
 import sys
 import tempfile
@@ -21,8 +20,9 @@ import tempfile
 
 ### kadmin automation
 ###
-class Kadmin:
-	""" root class for kadmin automation """
+class Kadmin(object):
+	"""root class for kadmin automation"""
+
 	def __init__(self, realm, admin_keytab, admin_principal, kadmin_binary):
 		self.log = logging.getLogger()
 		self.realm = realm
@@ -32,8 +32,8 @@ class Kadmin:
 
 
 	@staticmethod
-	def guess_realm(host, path="/etc/krb5.conf"):
-		""" guess host realm by longest match of host vs domain name-realm mapping """
+	def guess_realm(host):
+		"""guess host realm by longest match of host vs domain name-realm mapping"""
 
 		if host.find("@") != -1:
 			return host.split("@")[-1]
@@ -41,12 +41,12 @@ class Kadmin:
 		# cannot be parsed by ConfigParser due to realm syntax
 		guessed_realm = {"domain": "", "realm": None}
 		section = None
-		with open(path) as tmpfile:
+		with open("/etc/krb5.conf", "r") as tmpfile:
 			data = [x.strip() for x in tmpfile.readlines()]
 		for line in data:
-			m = re.search(r"\[(?P<section>.*)\]", line)
-			if m:
-				section = m.group("section")
+			match = re.search(r"\[(?P<section>.*)\]", line)
+			if match:
+				section = match.group("section")
 				continue
 
 			if (section == "domain_realm") and line:
@@ -61,7 +61,8 @@ class Kadmin:
 	# TODO: remove backward compatibility after upgrade
 	@staticmethod
 	def check_output(*popenargs, **kwargs):
-		""" implementation taken from python2.7, because lack of the methon in python2.6 version """
+		"""implementation taken from python2.7, because lack of the methon in python2.6 version"""
+
 		if 'stdout' in kwargs:
 			raise ValueError('stdout argument not allowed, it will be overridden.')
 		process = subprocess.Popen(stdout=subprocess.PIPE, stderr=subprocess.PIPE, *popenargs, **kwargs)
@@ -77,61 +78,78 @@ class Kadmin:
 
 
 class KadminMit(Kadmin):
+	"""remad kadmin implementation for MIT Kerberos"""
+
 	def exec_kadmin(self, command):
-		cmd = "{kadmin} -r {realm} -p {admin_principal} -k -t {admin_keytab} {command}".format(
-			kadmin = self.kadmin_binary, realm = self.realm,
-			admin_principal = self.admin_principal, admin_keytab = self.admin_keytab,
-			command = command
-		)
+		"""execute kadmin command"""
+
+		cmd = "{kadmin} -r {realm} -p {admin_principal} -k -t {admin_keytab} {command}".format( \
+			kadmin=self.kadmin_binary,
+			realm=self.realm, admin_principal=self.admin_principal, admin_keytab=self.admin_keytab,
+			command=command)
 		self.log.debug(cmd)
 		return Kadmin.check_output(shlex.split(cmd))
 
 
 	def list_principals(self, principal):
+		"""list principals, returns list"""
+
 		principals = self.exec_kadmin("list_principals %s" % principal).splitlines()
 		return principals
 
 
 	def add_principal(self, principal):
-		(service, host) = principal.split("/")
+		"""add principal, handle special case for nfs"""
+
+		# TODO: clarify reasons for nfs case, still needed ?
+		service = principal.split("/")[0]
 
 		opts = []
 		if service == "nfs":
 			opts.append("-e des-cbc-crc:v4")
 
-		return self.exec_kadmin("add_principal -randkey -policy default_nohistory +requires_preauth {opts} {principal}@{realm}".format(
+		return self.exec_kadmin("add_principal -randkey -policy default_nohistory +requires_preauth {opts} {principal}@{realm}".format( \
 			principal=principal, realm=self.realm, opts=" ".join(opts)))
 
 
 	def ktadd(self, principal, path_keytab):
+		"""add key to keytab, don't change the key"""
+
 		return self.exec_kadmin("ktadd -norandkey -k {path} {principal}@{realm}".format(path=path_keytab, principal=principal, realm=self.realm))
 
 
 
 class KadminHeimdal(Kadmin):
+	""" remad kadmin implementation for Heimdal Kerberos """
+
 	def exec_kadmin(self, command):
-		cmd = "{kadmin} --realm={realm} --principal={admin_principal} --keytab={admin_keytab} {command}".format(
-			kadmin = self.kadmin_binary, realm = self.realm,
-			admin_principal = self.admin_principal, admin_keytab = self.admin_keytab,
-			command = command
-		)
+		"""execute kadmin command"""
+
+		cmd = "{kadmin} --realm={realm} --principal={admin_principal} --keytab={admin_keytab} {command}".format( \
+			kadmin=self.kadmin_binary,
+			realm=self.realm, admin_principal=self.admin_principal, admin_keytab=self.admin_keytab,
+			command=command)
 		self.log.debug(cmd)
 		return Kadmin.check_output(shlex.split(cmd))
 
 
 	def list_principals(self, principal):
+		"""list principals, returns list"""
+
 		try:
 			principals = self.exec_kadmin("list -l %s" % principal).splitlines()
-		except:
+		except Exception:
 			principals = []
 		return principals
 
 
 	def add_principal(self, principal):
-		(service, host) = principal.split("/")
+		"""add principal, handle special case for nfs"""
+
+		service = principal.split("/")[0]
 
 		ret = self.exec_kadmin("add --random-key --use-defaults {principal}@{realm}".format(principal=principal, realm=self.realm))
-		
+
 		if service == "nfs":
 			ensure_enctypes = ["des-cbc-crc", "des-cbc-md5"]
 			for enctype in ensure_enctypes:
@@ -148,6 +166,8 @@ class KadminHeimdal(Kadmin):
 
 
 	def ktadd(self, principal, path_keytab):
+		"""add key to keytab, don't change the key"""
+
 		return self.exec_kadmin("ext_keytab --keytab={path} {principal}@{realm}".format(path=path_keytab, principal=principal, realm=self.realm))
 
 
@@ -158,14 +178,16 @@ class KadminHeimdal(Kadmin):
 ## remadd server
 ##
 class Remadd(object):
+	"""remad server class"""
+
 	def __init__(self, config_file):
 		self.log = logging.getLogger()
 
 		self.remoteuser = os.getenv("REMOTE_USER", "unauthenticated")
-		self.log.debug("authenticated as %s" % self.remoteuser)
+		self.log.debug("authenticated as %s", self.remoteuser)
 
 		# config defaults
-		self.config = { "debug": False }
+		self.config = {"debug": False}
 		# config file
 		try:
 			with open(config_file, "r") as ftmp:
@@ -175,7 +197,7 @@ class Remadd(object):
 		except Exception as e:
 			self.log.error("parse config: %s", e.message)
 			raise
-	
+
 		if self.config["debug"]:
 			self.log.setLevel(logging.DEBUG)
 
@@ -184,13 +206,12 @@ class Remadd(object):
 		""" returns configured class based on realm from principal"""
 		realm = Kadmin.guess_realm(principal)
 		try:
-			# instantantiate proper kadmin class with config 
-			return globals()[self.config["realm"][realm]["type"]](
+			# instantantiate proper kadmin class with config
+			return globals()[self.config["realm"][realm]["type"]]( \
 				realm,
 				self.config["realm"][realm]["keytab"],
 				self.config["realm"][realm]["principal"],
-				self.config["binaries"][self.config["realm"][realm]["type"]]
-			)
+				self.config["binaries"][self.config["realm"][realm]["type"]])
 		except Exception as e:
 			raise Exception("realm %s not fully configured", realm, e.message)
 
@@ -200,35 +221,37 @@ class Remadd(object):
 
 		class NotAuthorizedException(Exception):
 			""" raised when user is not authorized to perform requested action """
-	
+
 		def check_by_regexp(regexp, value):
 			""" evaluate value to regexp respecting type of value """
 			if isinstance(value, list):
-		        	for item in value:
-					if not re.match(regexp, item): return False
+				for item in value:
+					if not re.match(regexp, item):
+						return False
 			else:
-				if not re.match(regexp, value): return False
+				if not re.match(regexp, value):
+					return False
 			return True
 
 
-		""" is_authorized impl """
+		# is_authorized impl
 		caller = inspect.currentframe().f_back.f_code.co_name
 		if caller not in self.config["acls"]:
 			raise NotAuthorizedException("is_authorized denied %s to %s:%s" % (self.remoteuser, caller, kwargs))
-	
+
 		# evaluate every acl for given command
 		for acl in self.config["acls"][caller]:
-				if acl["group"] not in self.config["groups"]:
-					continue
-		
-				# if user is in group check all arguments passed by the caller
-				if self.remoteuser in self.config["groups"][acl["group"]]:
-					kwargs_result = [check_by_regexp(acl[argname], argvalue) for argname, argvalue in kwargs.iteritems()]
-					# and if all arguments matches, result as permitted
-					if all(kwargs_result):
-						self.log.debug("is_authorized permitted %s to %s:%s" % (self.remoteuser, caller, kwargs))
-						return True
-	
+			if acl["group"] not in self.config["groups"]:
+				continue
+
+			# if user is in group check all arguments passed by the caller
+			if self.remoteuser in self.config["groups"][acl["group"]]:
+				kwargs_result = [check_by_regexp(acl[argname], argvalue) for argname, argvalue in kwargs.iteritems()]
+				# and if all arguments matches, result as permitted
+				if all(kwargs_result):
+					self.log.debug("is_authorized permitted %s to %s:%s", self.remoteuser, caller, kwargs)
+					return True
+
 		# no match has been found >> default deny
 		raise NotAuthorizedException("is_authorized denied %s to %s:%s" % (self.remoteuser, caller, kwargs))
 
@@ -236,13 +259,13 @@ class Remadd(object):
 
 
 	def conftest(self):
-		""" remadd conftest """
+		"""remadd conftest"""
 		self.log.info("configuration ok")
 		return 0
 
 
 	def createkeytab(self, host, services):
-		""" remad createkeytab """
+		"""remad createkeytab"""
 		self.is_authorized(host=host, services=services)
 
 
@@ -258,14 +281,14 @@ class Remadd(object):
 			principal = "%s/%s" % (service, host)
 			tmp = kadmin.list_principals(principal)
 			if not tmp:
-				self.log.debug("must create %s@%s" % (principal, kadmin.realm))
+				self.log.debug("must create %s@%s", principal, kadmin.realm)
 				kadmin.add_principal(principal)
-		
+
 			kadmin.ktadd(principal, path_tmpkeytab)
 
 		# return the keytab
-		with open(path_tmpkeytab, "r") as f:
-			print base64.b64encode(f.read())
+		with open(path_tmpkeytab, "r") as tmpfile:
+			print base64.b64encode(tmpfile.read())
 		os.unlink(path_tmpkeytab)
 
 		return 0
@@ -273,22 +296,21 @@ class Remadd(object):
 
 
 	def storesshhostkey(self, host, filename, data):
-		""" remad storesshhostkey """
+		"""remad storesshhostkey"""
 		self.is_authorized(host=host, filename=filename)
-	
+
 		destfile = os.path.realpath("%s/%s/%s" % (self.config["ssh-key-storage"], host, filename))
 		if not destfile.startswith(self.config["ssh-key-storage"]):
 			raise Exception("invalid storage destination")
-	
+
 		if not os.path.exists(os.path.dirname(destfile)):
 			os.makedirs(os.path.dirname(destfile))
 
-		with open(destfile, "w") as f:
-			f.write(base64.b64decode(data))
+		with open(destfile, "w") as tmpfile:
+			tmpfile.write(base64.b64decode(data))
 		os.chmod(destfile, 0600)
 
-		self.log.debug("%s:%s stored in %s" % (host, filename, destfile))
-
+		self.log.debug("%s:%s stored in %s", host, filename, destfile)
 		return 0
 
 
@@ -296,14 +318,14 @@ class Remadd(object):
 	def getsshhostkey(self, host, filename):
 		""" remad getsshhostkey """
 		self.is_authorized(host=host, filename=filename)
-	
+
 		sourcefile = os.path.realpath("%s/%s/%s" % (self.config["ssh-key-storage"], host, filename))
 		if not sourcefile.startswith(self.config["ssh-key-storage"]):
 			raise Exception("invalid storage source")
 
-	        with open(sourcefile, "r") as tmpfile:
-	                print base64.b64encode(tmpfile.read())
-		self.log.debug("%s read from %s:%s" % (filename, host, sourcefile))
+		with open(sourcefile, "r") as tmpfile:
+			print base64.b64encode(tmpfile.read())
+		self.log.debug("%s read from %s:%s", filename, host, sourcefile)
 
 		return 0
 
@@ -318,34 +340,40 @@ class Remadd(object):
 ###
 
 def parse_arguments():
+	"""parse command line arguments"""
+
 	parser = argparse.ArgumentParser()
 
-	subparsers = parser.add_subparsers(dest='command')
+	parser_command = parser.add_subparsers(dest='command')
 
-	parser_conftest = subparsers.add_parser("conftest", help="configtest help")
+	_ = parser_command.add_parser("conftest", help="configtest help")
 
-	parser_createkeytab = subparsers.add_parser("createkeytab", help="createkeytab command help")
-	parser_createkeytab.add_argument("--host", required=True, help="create (upsert principals) keytab for hostname")
-	parser_createkeytab.add_argument("--services", required=True, nargs="+", help="create (upsert principals) keytab for services at hostname")
+	command_createkeytab = parser_command.add_parser("createkeytab", help="createkeytab command help")
+	command_createkeytab.add_argument("--host", required=True, help="create (upsert principals) keytab for hostname")
+	command_createkeytab.add_argument("--services", required=True, nargs="+", help="create (upsert principals) keytab for services at hostname")
 
-	parser_storesshhostkey = subparsers.add_parser("storesshhostkey", help="createkeytab command help")
-	parser_storesshhostkey.add_argument("--host", required=True, help="hostname to store key for")
-	parser_storesshhostkey.add_argument("--filename", required=True, help="filename")
-	parser_storesshhostkey.add_argument("--data", required=False, help="base64 encoded data to store")
+	command_storesshhostkey = parser_command.add_parser("storesshhostkey", help="createkeytab command help")
+	command_storesshhostkey.add_argument("--host", required=True, help="hostname to store key for")
+	command_storesshhostkey.add_argument("--filename", required=True, help="filename")
+	command_storesshhostkey.add_argument("--data", required=False, help="base64 encoded data to store")
 
-	parser_getsshhostkey = subparsers.add_parser("getsshhostkey", help="getsshhostkey command help")
-	parser_getsshhostkey.add_argument("--host", required=True, help="get file for hostname")
-	parser_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
+	command_getsshhostkey = parser_command.add_parser("getsshhostkey", help="getsshhostkey command help")
+	command_getsshhostkey.add_argument("--host", required=True, help="get file for hostname")
+	command_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
 
-        return parser.parse_args()
+	return parser.parse_args()
 
 
 
 def is_valid_host(value):
+	"""validator"""
+
 	if not re.match(r"^[a-zA-Z0-9@\.\-]+$", value):
 		raise ValueError("invalid host")
 
 def is_valid_service(value):
+	"""validator"""
+
 	regexp = r"^[a-zA-Z]+$"
 	if isinstance(value, list):
 		for item in value:
@@ -356,10 +384,14 @@ def is_valid_service(value):
 			raise ValueError("invalid service")
 
 def is_valid_filename(value):
+	"""validator"""
+
 	if not re.match(r"^[a-zA-Z0-9_\.\-]+$", value):
 		raise ValueError("invalid filename")
 
 def is_valid_data(value):
+	"""validator"""
+
 	try:
 		base64.b64decode(value)
 	except:
