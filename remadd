@@ -14,93 +14,47 @@ import subprocess
 import sys
 import tempfile
 
-logger = logging.getLogger()
-logging.basicConfig(level=logging.INFO, format=os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
 
 
 
 
 
-
-### validation helpers
+### kadmin automation
 ###
-
-def is_valid_host(host):
-	if not re.match("^[a-zA-Z0-9@\.\-]+$", host):
-		raise ValueError("invalid host")
-	return True
-
-def is_valid_service(service):
-	if not re.match("^[a-zA-Z]+$", service):
-		raise ValueError("invalid service")
-	return True
-
-def is_valid_filename(filename):
-	if not re.match("^[a-zA-Z0-9_\.\-]+$", filename):
-		raise ValueError("invalid filename")
-	return True
-
-def is_valid_data(data):
-	try:
-		base64.b64decode(data)
-	except:
-		raise ValueError("invalid data")
-	return True
-
-
-
-
-
-
-### kadmin automation classes
-###
-
 class Kadmin:
 	""" root class for kadmin automation """
-	def __init__(self, realm):
+	def __init__(self, realm, admin_keytab, admin_principal, kadmin_binary):
+		self.log = logging.getLogger()
 		self.realm = realm
-		if self.realm in config["realm"]:
-			self.admin = config["realm"][self.realm]
-		else:
-			raise Exception("no credentials for realm %s" % self.realm)
-
-		
-	@staticmethod
-	def factory(principal):
-		""" returns proper class based on realm from principal"""
-		realm = Kadmin.guess_realm(principal)
-		try:
-			# instantiate class by name referenced in config as a string
-			return globals()[config["realm"][realm]["type"]](realm)
-		except:
-			raise Exception("realm %s not properly configured" % realm)
+		self.admin_keytab = admin_keytab
+		self.admin_principal = admin_principal
+		self.kadmin_binary = kadmin_binary
 
 
 	@staticmethod
-	def guess_realm(host, path = "/etc/krb5.conf"):
+	def guess_realm(host, path="/etc/krb5.conf"):
 		""" guess host realm by longest match of host vs domain name-realm mapping """
 
-		if (host.find("@") != -1):
+		if host.find("@") != -1:
 			return host.split("@")[-1]
 
-		# cannot be parsed by ConfigParser due to realm syntax	
+		# cannot be parsed by ConfigParser due to realm syntax
 		guessed_realm = {"domain": "", "realm": None}
 		section = None
-		with open(path) as f: 
-			data = [x.strip() for x in f.read().splitlines()]
+		with open(path) as tmpfile:
+			data = [x.strip() for x in tmpfile.readlines()]
 		for line in data:
-			m = re.search("\[(?P<section>.*)\]",line)
+			m = re.search(r"\[(?P<section>.*)\]", line)
 			if m:
 				section = m.group("section")
 				continue
-	
+
 			if (section == "domain_realm") and line:
 				(domain, realm) = [x.strip() for x in line.split("=")]
 				# most specific match must win
 				if (host.find(domain) > -1) and (len(domain) >= len(guessed_realm["domain"])):
-					guessed_realm = { "domain": domain, "realm": realm}
-	
-		logger.debug("guessed_realm: %s for %s" % (guessed_realm["realm"], host))
+					guessed_realm = {"domain": domain, "realm": realm}
+
 		return guessed_realm["realm"]
 
 
@@ -122,13 +76,14 @@ class Kadmin:
 
 
 
-
-
 class KadminMit(Kadmin):
 	def exec_kadmin(self, command):
 		cmd = "{kadmin} -r {realm} -p {admin_principal} -k -t {admin_keytab} {command}".format(
-			kadmin = config["binaries"][ config["realm"][self.realm]["type"] ], realm = self.realm, admin_principal = self.admin["principal"], admin_keytab = self.admin["keytab"], command = command)
-		logger.debug(cmd)
+			kadmin = self.kadmin_binary, realm = self.realm,
+			admin_principal = self.admin_principal, admin_keytab = self.admin_keytab,
+			command = command
+		)
+		self.log.debug(cmd)
 		return Kadmin.check_output(shlex.split(cmd))
 
 
@@ -144,24 +99,23 @@ class KadminMit(Kadmin):
 		if service == "nfs":
 			opts.append("-e des-cbc-crc:v4")
 
-		ret = self.exec_kadmin("add_principal -randkey -policy default_nohistory +requires_preauth {opts} {principal}@{realm}".format(
+		return self.exec_kadmin("add_principal -randkey -policy default_nohistory +requires_preauth {opts} {principal}@{realm}".format(
 			principal=principal, realm=self.realm, opts=" ".join(opts)))
-		return ret
 
 
 	def ktadd(self, principal, path_keytab):
 		return self.exec_kadmin("ktadd -norandkey -k {path} {principal}@{realm}".format(path=path_keytab, principal=principal, realm=self.realm))
-		
-			
-		
 
 
 
 class KadminHeimdal(Kadmin):
 	def exec_kadmin(self, command):
 		cmd = "{kadmin} --realm={realm} --principal={admin_principal} --keytab={admin_keytab} {command}".format(
-			kadmin = config["binaries"][ config["realm"][self.realm]["type"] ], realm = self.realm, admin_principal = self.admin["principal"], admin_keytab = self.admin["keytab"], command = command)
-		logger.debug(cmd)
+			kadmin = self.kadmin_binary, realm = self.realm,
+			admin_principal = self.admin_principal, admin_keytab = self.admin_keytab,
+			command = command
+		)
+		self.log.debug(cmd)
 		return Kadmin.check_output(shlex.split(cmd))
 
 
@@ -181,17 +135,16 @@ class KadminHeimdal(Kadmin):
 		if service == "nfs":
 			ensure_enctypes = ["des-cbc-crc", "des-cbc-md5"]
 			for enctype in ensure_enctypes:
-				ret = self.exec_kadmin("add_enctype --random-key {principal}@{realm} {enctype}".format(principal=principal, realm=self.realm, enctype=enctype))
+				self.exec_kadmin("add_enctype --random-key {principal}@{realm} {enctype}".format(principal=principal, realm=self.realm, enctype=enctype))
 
 			keytypes = self.exec_kadmin("get -s -o keytypes {principal}@{realm}".format(principal=principal, realm=self.realm))
 			enctypes = [x.split("(")[0].strip() for x in keytypes.splitlines()[-1].split(",")]
-			logger.debug(enctypes)
+			self.log.debug(enctypes)
 
 			for enctype in enctypes:
 				if enctype not in ensure_enctypes:
-					ret = self.exec_kadmin("del_enctype {principal}@{realm} {enctype}".format(principal=principal, realm=self.realm, enctype=enctype))
-			
-		return True
+					self.exec_kadmin("del_enctype {principal}@{realm} {enctype}".format(principal=principal, realm=self.realm, enctype=enctype))
+		return ret
 
 
 	def ktadd(self, principal, path_keytab):
@@ -202,126 +155,160 @@ class KadminHeimdal(Kadmin):
 
 
 
-### authorization framework
-###
+## remadd server
+##
+class Remadd(object):
+	def __init__(self, config_file):
+		self.log = logging.getLogger()
 
+		self.remoteuser = os.getenv("REMOTE_USER", "unauthenticated")
+		self.log.debug("authenticated as %s" % self.remoteuser)
 
-class NotAuthorizedException(Exception):
-	""" raised when user is not authorized to perform requested action """
-
-def check_by_regexp(regexp, val):
-	""" evaluate value to regexp respecting type of value """
-	if isinstance(val, list):
-		for item in val:
-			if not re.match(regexp, item): return False
-	else:
-		if not re.match(regexp, val): return False
-
-	return True
-
-def is_authorized(**kwargs):
-	""" check all arguments against coresponding regexps from config for caller function name """
-	caller = inspect.currentframe().f_back.f_code.co_name
-	if caller not in config["acls"]: raise NotAuthorizedException("is_authorized denied %s to %s:%s" % (remoteuser, caller, kwargs))
-
-	# evaluate every acl for given command
-	for acl in config["acls"][caller]:
-			if acl["group"] not in config["groups"]: continue
+		# config defaults
+		self.config = { "debug": False }
+		# config file
+		try:
+			with open(config_file, "r") as ftmp:
+				data = ftmp.readlines()
+			stripcomments = "\n".join((l for l in data if not l.lstrip().startswith(("#", "//"))))
+			self.config.update(json.loads(stripcomments))
+		except Exception as e:
+			self.log.error("parse config: %s", e.message)
+			raise
 	
-			# if user is in group check all arguments passed by the caller
-			if remoteuser in config["groups"][acl["group"]]:
-				kwargs_result = [check_by_regexp(acl[argname], argvalue) for argname, argvalue in kwargs.iteritems()]
-				# and if all arguments matches, result as permitted
-				if all(kwargs_result):
-					logger.debug("is_authorized permitted %s to %s:%s" % (remoteuser, caller, kwargs))
-					return True
-
-	# no match has been found >> default deny
-	raise NotAuthorizedException("is_authorized denied %s to %s:%s" % (remoteuser, caller, kwargs))
+		if self.config["debug"]:
+			self.log.setLevel(logging.DEBUG)
 
 
+	def kadmin_factory(self, principal):
+		""" returns configured class based on realm from principal"""
+		realm = Kadmin.guess_realm(principal)
+		try:
+			# instantantiate proper kadmin class with config 
+			return globals()[self.config["realm"][realm]["type"]](
+				realm,
+				self.config["realm"][realm]["keytab"],
+				self.config["realm"][realm]["principal"],
+				self.config["binaries"][self.config["realm"][realm]["type"]]
+			)
+		except Exception as e:
+			raise Exception("realm %s not fully configured", realm, e.message)
 
 
+	def is_authorized(self, **kwargs):
+		""" authorization routine, checks all kwargs against regexps from global config for given caller function """
+
+		class NotAuthorizedException(Exception):
+			""" raised when user is not authorized to perform requested action """
+	
+		def check_by_regexp(regexp, value):
+			""" evaluate value to regexp respecting type of value """
+			if isinstance(value, list):
+		        	for item in value:
+					if not re.match(regexp, item): return False
+			else:
+				if not re.match(regexp, value): return False
+			return True
 
 
-### commands implementation
-###
-
-
-def createkeytab(host, services):
-	is_valid_host(host)
-	[is_valid_service(x) for x in services]
-	is_authorized(host=host, services=services)
-
-
-	kadmin = Kadmin.factory(host)
-	host = host.split("@")[0] # strip realm if present
-
-	# create temporary filename
-	with tempfile.NamedTemporaryFile(prefix="%s-getkeytab-" % os.path.basename(sys.argv[0])) as tmpkeytab:
-		path_tmpkeytab = tmpkeytab.name
-
-	# upsert principals and create keytab
-	for service in services:
-		principal = "%s/%s" % (service, host)
-		tmp = kadmin.list_principals(principal)
-		if not tmp:
-			logger.debug("must create %s@%s" % (principal, kadmin.realm))
-			kadmin.add_principal(principal)
+		""" is_authorized impl """
+		caller = inspect.currentframe().f_back.f_code.co_name
+		if caller not in self.config["acls"]:
+			raise NotAuthorizedException("is_authorized denied %s to %s:%s" % (self.remoteuser, caller, kwargs))
+	
+		# evaluate every acl for given command
+		for acl in self.config["acls"][caller]:
+				if acl["group"] not in self.config["groups"]:
+					continue
 		
-		kadmin.ktadd(principal, path_tmpkeytab)
-
-	# return the keytab
-	with open(path_tmpkeytab, "r") as f:
-		print base64.b64encode(f.read())
-	os.unlink(path_tmpkeytab)
-
-
-
-
-
-
-def storesshhostkey(host, filename, data):
-	is_valid_host(host)
-	is_valid_filename(filename)
-	is_valid_data(data)
-	is_authorized(host=host, filename=filename)
-
-
-	destdir = os.path.realpath("%s/%s" % (config["ssh-key-storage"], host))
-	if not destdir.startswith(config["ssh-key-storage"]):
-		raise Exception("invalid host")
-	destfile = os.path.realpath("%s/%s" % (destdir, filename))
-	if not destfile.startswith(destdir):
-		raise Exception("invalid filename")
-
-	if not os.path.exists(destdir):
-		os.makedirs(destdir)
-	with open(destfile, "w") as f:
-		f.write(base64.b64decode(data))
-	os.chmod(destfile, 0600)
-	logger.debug("%s:%s stored in %s" % (host, filename, destfile))
+				# if user is in group check all arguments passed by the caller
+				if self.remoteuser in self.config["groups"][acl["group"]]:
+					kwargs_result = [check_by_regexp(acl[argname], argvalue) for argname, argvalue in kwargs.iteritems()]
+					# and if all arguments matches, result as permitted
+					if all(kwargs_result):
+						self.log.debug("is_authorized permitted %s to %s:%s" % (self.remoteuser, caller, kwargs))
+						return True
+	
+		# no match has been found >> default deny
+		raise NotAuthorizedException("is_authorized denied %s to %s:%s" % (self.remoteuser, caller, kwargs))
 
 
 
 
+	def conftest(self):
+		""" remadd conftest """
+		self.log.info("configuration ok")
+		return 0
 
 
-def getsshhostkey(host, filename):
-	is_valid_host(host)
-	is_valid_filename(filename)
-	is_authorized(host=host, filename=filename)
+	def createkeytab(self, host, services):
+		""" remad createkeytab """
+		self.is_authorized(host=host, services=services)
 
-	destdir = os.path.realpath("%s/%s" % (config["ssh-key-storage"], host))
-	if not destdir.startswith(config["ssh-key-storage"]):
-		raise Exception("invalid host")
-	destfile = os.path.realpath("%s/%s" % (destdir, filename))
-	if not destfile.startswith(destdir):
-		raise Exception("invalid filename")
 
-        with open(destfile, "r") as f:
-                print base64.b64encode(f.read())
-	logger.debug("%s read from %s:%s" % (filename, host, destfile))
+		kadmin = self.kadmin_factory(host)
+		host = host.split("@")[0] # strip realm if present
+
+		# create temporary filename
+		with tempfile.NamedTemporaryFile(prefix="%s-getkeytab-" % os.path.basename(sys.argv[0])) as tmpkeytab:
+			path_tmpkeytab = tmpkeytab.name
+
+		# upsert principals and create keytab
+		for service in services:
+			principal = "%s/%s" % (service, host)
+			tmp = kadmin.list_principals(principal)
+			if not tmp:
+				self.log.debug("must create %s@%s" % (principal, kadmin.realm))
+				kadmin.add_principal(principal)
+		
+			kadmin.ktadd(principal, path_tmpkeytab)
+
+		# return the keytab
+		with open(path_tmpkeytab, "r") as f:
+			print base64.b64encode(f.read())
+		os.unlink(path_tmpkeytab)
+
+		return 0
+
+
+
+	def storesshhostkey(self, host, filename, data):
+		""" remad storesshhostkey """
+		self.is_authorized(host=host, filename=filename)
+	
+		destfile = os.path.realpath("%s/%s/%s" % (self.config["ssh-key-storage"], host, filename))
+		if not destfile.startswith(self.config["ssh-key-storage"]):
+			raise Exception("invalid storage destination")
+	
+		if not os.path.exists(os.path.dirname(destfile)):
+			os.makedirs(os.path.dirname(destfile))
+
+		with open(destfile, "w") as f:
+			f.write(base64.b64decode(data))
+		os.chmod(destfile, 0600)
+
+		self.log.debug("%s:%s stored in %s" % (host, filename, destfile))
+
+		return 0
+
+
+
+	def getsshhostkey(self, host, filename):
+		""" remad getsshhostkey """
+		self.is_authorized(host=host, filename=filename)
+	
+		sourcefile = os.path.realpath("%s/%s/%s" % (self.config["ssh-key-storage"], host, filename))
+		if not sourcefile.startswith(self.config["ssh-key-storage"]):
+			raise Exception("invalid storage source")
+
+	        with open(sourcefile, "r") as tmpfile:
+	                print base64.b64encode(tmpfile.read())
+		self.log.debug("%s read from %s:%s" % (filename, host, sourcefile))
+
+		return 0
+
+
+
 
 
 
@@ -350,50 +337,69 @@ def parse_arguments():
 	parser_getsshhostkey.add_argument("--host", required=True, help="get file for hostname")
 	parser_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
 
+        return parser.parse_args()
 
-        # finish parsing        
-        args = parser.parse_args()
-        return args
 
+
+def is_valid_host(value):
+	if not re.match(r"^[a-zA-Z0-9@\.\-]+$", value):
+		raise ValueError("invalid host")
+
+def is_valid_service(value):
+	regexp = r"^[a-zA-Z]+$"
+	if isinstance(value, list):
+		for item in value:
+			if not re.match(regexp, item):
+				raise ValueError("invalid service")
+	else:
+		if not re.match(regexp, value):
+			raise ValueError("invalid service")
+
+def is_valid_filename(value):
+	if not re.match(r"^[a-zA-Z0-9_\.\-]+$", value):
+		raise ValueError("invalid filename")
+
+def is_valid_data(value):
+	try:
+		base64.b64decode(value)
+	except:
+		raise ValueError("invalid data")
+
+
+
+def main():
+	""" main """
+
+	logging.basicConfig(level=logging.INFO, format=os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
+	args = parse_arguments()
+
+	try:
+		remadd = Remadd("/etc/remadd.conf")
+
+		if args.command == "conftest":
+			ret = remadd.conftest()
+
+		elif args.command == "createkeytab":
+			is_valid_host(args.host)
+			is_valid_service(args.services)
+			ret = remadd.createkeytab(args.host, args.services)
+
+		elif args.command == "storesshhostkey":
+			is_valid_host(args.host)
+			is_valid_filename(args.filename)
+			ret = remadd.storesshhostkey(args.host, args.filename, args.data)
+
+		elif args.command == "getsshhostkey":
+			is_valid_host(args.host)
+			is_valid_filename(args.filename)
+			ret = remadd.getsshhostkey(args.host, args.filename)
+
+	except Exception as e:
+		logging.getLogger().error(e)
+		return 1
+
+	return ret
 
 
 if __name__ == "__main__":
-
-	# startup 
-	args = parse_arguments()
-	try:
-		with open("/etc/remadd.conf", "r") as f:
-			data = f.readlines()
-		stripcomments = "\n".join((l for l in data if not l.lstrip().startswith(("#", "//"))))
-		config = json.loads(stripcomments)
-		if "debug" not in config:
-			config["debug"] = False
-		if config["debug"]:
-			logger.setLevel(logging.DEBUG)
-	except Exception as e:
-		if config["debug"]: raise
-		logger.error("parse config: %s" % e.message)
-		sys.exit(1)
-
-
-	remoteuser = os.getenv("REMOTE_USER", "unauthenticated")
-	logger.debug("authenticated as %s" % remoteuser)
-
-
-	try:
-		# process command	
-		if (args.command == "conftest"):
-			logger.info("configuration ok")
-
-		if (args.command == "createkeytab"):
-			createkeytab(args.host, args.services)
-
-		if (args.command == "storesshhostkey"):
-			storesshhostkey(args.host, args.filename, args.data)
-
-		if (args.command == "getsshhostkey"):
-			getsshhostkey(args.host, args.filename)
-	except Exception as e:
-		if config["debug"]: raise
-		logger.error("processing command: %s" % e.message)
-		sys.exit(1)
+	sys.exit(main())
