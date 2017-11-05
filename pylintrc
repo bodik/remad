@@ -1,3 +1,10 @@
 [FORMAT]
 max-line-length=150
-indent-string='\t'
+indent-string=\t
+indent-after-paren=1
+
+[BASIC]
+good-names=i,j,k,ex,Run,_,e
+
+[EXCEPTIONS]
+overgeneral-exceptions=
