@@ -24,4 +24,13 @@ fi
 
 
 rm -f ${TESTFILE_SRC} ${TESTFILE_DST}
+
+
+
+remad --debug getsshhostkey --host $(facter fqdn) --filename test_remad_doesnotexist --outfile /dev/null
+if [ $? -ne 1 ]; then
+	rreturn 1 "remad doesnotexist test failed"
+fi
+
+
 rreturn 0 "$0"
