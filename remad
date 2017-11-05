@@ -77,9 +77,10 @@ class Remad(object):
 		(proc, proc_stdout, proc_stderr) = self.remctlcall(cmd)
 		sys.stderr.write(proc_stderr)
 
-		with open(outfile, "w") as ftmp:
-			ftmp.write(base64.b64decode(proc_stdout))
-		self.log.debug("file %s for %s created in %s", filename, host, outfile)
+		if proc.returncode == 0:
+			with open(outfile, "w") as ftmp:
+				ftmp.write(base64.b64decode(proc_stdout))
+			self.log.debug("file %s for %s created in %s", filename, host, outfile)
 
 		return proc.returncode
 
@@ -108,7 +109,6 @@ def parse_arguments():
 	parser_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
 	parser_getsshhostkey.add_argument("--outfile", required=True, help="write fetched file to path")
 
-        # finish parsing
 	return parser.parse_args()
 
 
