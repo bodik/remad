@@ -1,4 +1,5 @@
+# TODO: remove backward compatibility after upgrade ANYUSER vs anyuser:auth
+#remadd storesshhostkey /opt/remad/remadd logmask=7 anyuser:auth
 #remadd ALL /opt/remad/remadd anyuser:auth
-
-# TODO: remove backward compatibility after upgrade
+remadd storesshhostkey /opt/remad/remadd logmask=7 ANYUSER
 remadd ALL /opt/remad/remadd ANYUSER
