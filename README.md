@@ -15,6 +15,10 @@ ln -s /opt/remad/remad /usr/local/bin/remad
 ### server
 see `install.pp` puppet recipe for installation hints
 
+```
+vim /etc/remadd.conf
+/opt/remad/remadd conftest
+```
 
 ## usage
 
