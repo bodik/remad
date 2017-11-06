@@ -403,6 +403,7 @@ def main():
 	""" main """
 
 	logging.basicConfig(level=logging.INFO, format=os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
+	logger = logging.getLogger()
 	args = parse_arguments()
 
 	try:
@@ -427,7 +428,8 @@ def main():
 			ret = remadd.getsshhostkey(args.host, args.filename)
 
 	except Exception as e:
-		logging.getLogger().error(e)
+		logger.debug(e, exc_info=True)
+		logger.error(e)
 		return 1
 
 	return ret
