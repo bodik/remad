@@ -1,5 +1,6 @@
 #!/usr/bin/puppet apply
 
+### server
 
 # detect local kdc implementation
 if( file_exists("/etc/krb5kdc/kadm5.acl") == 1 ) { 
@@ -7,7 +8,6 @@ if( file_exists("/etc/krb5kdc/kadm5.acl") == 1 ) {
 } elsif ( file_exists("/etc/heimdal-kdc/kadmind.acl") == 1 ) {
 	$kdc_impl = "heimdal" 
 }
-
 
 # install
 package { ["remctl-server"]: ensure => installed }
@@ -20,7 +20,6 @@ file { "/opt/remad/remadd.conf":
 	owner => "root", group => "root", mode => "0644",
 }
 file { "/etc/remadd.conf": ensure => link, target => "/opt/remad/remadd.conf", }
-
 
 # kadmin acls for testbed
 case $kdc_impl {
@@ -40,7 +39,8 @@ case $kdc_impl {
 
 
 
-# client
+### client
+
 package { ["remctl-client"]: ensure => installed }
 file { "/usr/local/bin/remad": ensure => link, target => "/opt/remad/remad", }
 
