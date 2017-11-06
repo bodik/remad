@@ -29,18 +29,19 @@
 	# authorization rules for commands
 	"acls": {
 		# "acommand": [ { "group": "authzgroupname", "param1": "regex" } ],
+		# any slash must be encoded as double slash "^ho..name[0-9]?\\.domain\\.cz$"
 
 		"createkeytab": [
 			{ "group": "groupname2", "host": "regex", "services": "regex" },
-			{ "group": "group_selftest", "host": "^ztook[0-9]?.meta.zcu.cz$", "services": "^(host|ftp|nfs|pbs)$" }
+			{ "group": "group_selftest", "host": "^ztook[0-9]?\\.meta\\.zcu\\.cz(@[A-Z0-9]+)?$", "services": "^(host|ftp|nfs|pbs)$" }
 		],
 
 		"storesshhostkey": [
-			{ "group": "group_selftest", "host": "^ztook[0-9]?.meta.zcu.cz$", "filename": "test_remad_.*" }
+			{ "group": "group_selftest", "host": "^ztook[0-9]?\\.meta\\.zcu\\.cz$", "filename": "test_remad_.*" }
 		],
 
 		"getsshhostkey": [
-			{ "group": "group_selftest", "host": "^ztook[0-9]?.meta.zcu.cz$", "filename": "test_remad_.*" }
+			{ "group": "group_selftest", "host": "^ztook[0-9]?\\.meta\\.zcu\\.cz$", "filename": "test_remad_.*" }
 		]
 	}
 }
