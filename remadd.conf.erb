@@ -14,14 +14,14 @@
 
 	# list of administrative credentials and types of available realms
 	"realm": {
-		"realm1": { "keytab": "/file1", "principal": "princ@realm1", "type": "KadminImpl" },
+		# "arealm": { "keytab": "/keytabfile", "principal": "princ@arealm", "type": "KadminImpl" },
 		"RSYSLOG3": { "keytab": "/etc/krb5.keytab", "principal": "host/<%= @fqdn %>@RSYSLOG3", "type": "<% case @kdc_impl %><% when "mit" %>KadminMit<% when "heimdal" %>KadminHeimdal<% end %>" }
 	},
 
 
 	# list of authorization groups
 	"groups": {
-		"groupname1": ["member1", "member2"],
+		# "agroupname": ["member1", "member2"],
 		"group_selftest": ["host/<%= @fqdn %>@RSYSLOG3"]
 	},
 
@@ -32,7 +32,6 @@
 		# any slash must be encoded as double slash "^ho..name[0-9]?\\.domain\\.cz$"
 
 		"createkeytab": [
-			{ "group": "groupname2", "host": "regex", "services": "regex" },
 			{ "group": "group_selftest", "host": "^ztook[0-9]?\\.meta\\.zcu\\.cz(@[A-Z0-9]+)?$", "services": "^(host|ftp|nfs|pbs)$" }
 		],
 
