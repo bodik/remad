@@ -7,7 +7,7 @@ TESTFILE_DST="/tmp/test_remad_getknownhosts_$$"
 
 # setup
 for key in "dsa" "rsa" "ecdsa" "ed25519"; do
-	test -f "/tmp/test_remad_sshkey_${key}" || ssh-keygen -q -f "/tmp/test_remad_sshkey_${KEY}" -N '' -t ${key}
+	test -f "/tmp/test_remad_sshkey_${key}" || ssh-keygen -q -f "/tmp/test_remad_sshkey_${key}" -N '' -t ${key}
 done
 for i in $(seq 30 100); do
 	DESTDIR="${SSHKEYSTORAGE}/ztook${i}.meta.zcu.cz"
