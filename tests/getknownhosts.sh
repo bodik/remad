@@ -22,6 +22,24 @@ for i in $(seq 30 100); do
 	fi
 done
 
+# artificial testcases
+DESTDIR="${SSHKEYSTORAGE}/ztook29.meta.zcu.cz"
+if [ ! -d "$DESTDIR" ]; then
+	mkdir -p "${DESTDIR}"
+	touch "$DESTDIR/selftest"
+
+	echo "somedata" > ${DESTDIR}/ssh_host_dsa_key
+	echo "typestr" > ${DESTDIR}/ssh_host_dsa_key.pub
+
+	echo "somedata" > ${DESTDIR}/ssh_host_rsa_key
+	echo "typestr keydata" > ${DESTDIR}/ssh_host_rsa_key.pub
+
+	echo "somedata" > ${DESTDIR}/ssh_host_ecdsa_key
+	echo "typestr keydata keyalias" > ${DESTDIR}/ssh_host_ecdsa_key.pub
+fi
+
+
+
 
 
 # push
@@ -34,17 +52,13 @@ fi
 
 # test
 LINES=$(wc -l ${TESTFILE_DST} | awk '{print $1}')
-if [ $LINES -ne 84 ]; then # result 84 specifically crafted number for ztook testbed
+if [ $LINES -ne 86 ]; then # result 86 specifically crafted number for ztook testbed
 	rreturn 1 "generated known_hosts not correct"
 fi
 
 
-
 rm -f ${TESTFILE_DST}
-for i in $(seq 30 100); do
-	DESTDIR="${SSHKEYSTORAGE}/ztook${i}.meta.zcu.cz"
-	if [ -f "${DESTDIR}/selftest" ]; then
-		rm -rf ${DESTDIR}
-	fi
+for i in $(find ${SSHKEYSTORAGE} -type f -name "selftest"); do
+	rm -rf $(dirname $i)
 done
 rreturn 0 "$0"

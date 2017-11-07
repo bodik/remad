@@ -365,10 +365,13 @@ class Remadd(object):
 			for keytype in ["dsa", "rsa", "ecdsa", "ed25519"]:
 				keypath = "%s/%s/ssh_host_%s_key.pub" % (self.config["ssh-key-storage"], host, keytype)
 				if os.path.exists(keypath):
-					with open(keypath, "r") as keyfile:
-						(typestr, keydata, _) = keyfile.read().strip().split()
-					output.append("{short},{host},{aliases},{ipaddr} {typestr} {keydata}".format( \
-						short=short, host=host, aliases=",".join(aliases), ipaddr=ipaddr, typestr=typestr, keydata=keydata))
+					try:
+						with open(keypath, "r") as keyfile:
+							(typestr, keydata) = keyfile.read().strip().split()[:2]
+							output.append("{short},{host},{aliases},{ipaddr} {typestr} {keydata}".format( \
+								short=short, host=host, aliases=",".join(aliases), ipaddr=ipaddr, typestr=typestr, keydata=keydata))
+					except Exception:
+						self.log.warn("invalid keyfile %s", keypath)
 
 		print base64.b64encode("\n".join(output)+"\n")
 
