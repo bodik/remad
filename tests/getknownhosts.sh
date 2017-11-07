@@ -32,17 +32,17 @@ if [ ! -d "$DESTDIR" ]; then
 	echo "typestr" > ${DESTDIR}/ssh_host_dsa_key.pub
 
 	echo "somedata" > ${DESTDIR}/ssh_host_rsa_key
-	echo "typestr keydata" > ${DESTDIR}/ssh_host_rsa_key.pub
+	echo "typestr1 keydata1" > ${DESTDIR}/ssh_host_rsa_key.pub
 
 	echo "somedata" > ${DESTDIR}/ssh_host_ecdsa_key
-	echo "typestr keydata keyalias" > ${DESTDIR}/ssh_host_ecdsa_key.pub
+	echo "typestr2 keydata2 keyalias2" > ${DESTDIR}/ssh_host_ecdsa_key.pub
 fi
 
 
 
 
 
-# push
+
 kinit -k -t /etc/krb5.keytab host/$(facter fqdn)
 remad --debug getknownhosts --outfile ${TESTFILE_DST}
 if [ $? -ne 0 ]; then
@@ -50,7 +50,15 @@ if [ $? -ne 0 ]; then
 fi
 
 
-# test
+
+
+
+
+egrep 'ztook29,ztook29.meta.zcu.cz,ztook29.metacentrum.cz,[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ typestr1 keydata1' ${TESTFILE_DST}
+if [ $? -ne 0 ]; then
+	rreturn 1 "known_hosts missing lines"
+fi
+
 LINES=$(wc -l ${TESTFILE_DST} | awk '{print $1}')
 if [ $LINES -ne 86 ]; then # result 86 specifically crafted number for ztook testbed
 	rreturn 1 "generated known_hosts not correct"
