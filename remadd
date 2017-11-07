@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import shlex
+import socket
 import subprocess
 import sys
 import tempfile
@@ -316,7 +317,7 @@ class Remadd(object):
 
 
 	def getsshhostkey(self, host, filename):
-		""" remad getsshhostkey """
+		"""remad getsshhostkey"""
 		self.is_authorized(host=host, filename=filename)
 
 		sourcefile = os.path.realpath("%s/%s/%s" % (self.config["ssh-key-storage"], host, filename))
@@ -330,6 +331,48 @@ class Remadd(object):
 		return 0
 
 
+
+
+
+	def getknownhosts(self):
+		"""remad getknownhosts"""
+		self.is_authorized()
+
+
+		def gethostbyname(hostname):
+			"""socket.gethostbyname exc wrapper"""
+			try:
+				return socket.gethostbyname(hostname)
+			except Exception:
+				return None
+
+
+		# getknownhosts impl
+		output = []
+		hosts = [x for x in os.listdir(self.config["ssh-key-storage"]) if os.path.isdir(os.path.join(self.config["ssh-key-storage"], x))]
+		for host in sorted(hosts):
+			ipaddr = gethostbyname(host)
+			if not ipaddr:
+				continue
+
+			short = host.split(".")[0]
+			aliases = []
+			if host.find(".metacentrum.cz") == -1:
+				aliases.append("%s.metacentrum.cz" % short)
+			if host == "skirit.ics.muni.cz":
+				aliases += ["arda", "arda.ics.muni.cz", "arda.metacentrum.cz"]
+
+			for keytype in ["dsa", "rsa", "ecdsa", "ed25519"]:
+				keypath = "%s/%s/ssh_host_%s_key.pub" % (self.config["ssh-key-storage"], host, keytype)
+				if os.path.exists(keypath):
+					with open(keypath, "r") as keyfile:
+						(typestr, keydata, _) = keyfile.read().strip().split()
+					output.append("{short},{host},{aliases},{ipaddr} {typestr} {keydata}".format( \
+						short=short, host=host, aliases=",".join(aliases), ipaddr=ipaddr, typestr=typestr, keydata=keydata))
+
+		print base64.b64encode("\n".join(output)+"\n")
+
+		return 0
 
 
 
@@ -360,6 +403,8 @@ def parse_arguments():
 	command_getsshhostkey = parser_command.add_parser("getsshhostkey", help="getsshhostkey command help")
 	command_getsshhostkey.add_argument("--host", required=True, help="get file for hostname")
 	command_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
+
+	_ = parser_command.add_parser("getknownhosts", help="getknownhosts help")
 
 	return parser.parse_args()
 
@@ -426,6 +471,9 @@ def main():
 			is_valid_host(args.host)
 			is_valid_filename(args.filename)
 			ret = remadd.getsshhostkey(args.host, args.filename)
+
+		elif args.command == "getknownhosts":
+			ret = remadd.getknownhosts()
 
 	except Exception as e:
 		logger.debug(e, exc_info=True)

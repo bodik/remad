@@ -40,8 +40,7 @@ class Remad(object):
 		sys.stderr.write(proc_stderr)
 
 		# data of created keytab are transfered via stdout encoded in base64
-		with open(outfile, "w") as ftmp:
-			ftmp.write(base64.b64decode(proc_stdout))
+		self._write_outfile(outfile, base64.b64decode(proc_stdout))
 		self.log.debug("keytab for %s created in %s", host, outfile)
 
 		return proc.returncode
@@ -78,11 +77,36 @@ class Remad(object):
 		sys.stderr.write(proc_stderr)
 
 		if proc.returncode == 0:
-			with open(outfile, "w") as ftmp:
-				ftmp.write(base64.b64decode(proc_stdout))
+			self._write_outfile(outfile, base64.b64decode(proc_stdout))
 			self.log.debug("file %s for %s created in %s", filename, host, outfile)
 
 		return proc.returncode
+
+
+
+	def getknownhosts(self, outfile):
+		"""generates global ssh_known_hosts file from keystorage"""
+
+		cmd = ["getknownhosts"]
+		(proc, proc_stdout, proc_stderr) = self.remctlcall(cmd)
+		sys.stderr.write(proc_stderr)
+
+		if proc.returncode == 0:
+			self._write_outfile(outfile, base64.b64decode(proc_stdout))
+			self.log.debug("known_hosts file created in %s", outfile)
+
+		return proc.returncode
+
+
+
+	@staticmethod
+	def _write_outfile(outfile, data):
+		if outfile == "-":
+			ftmp = sys.stdout
+		else:
+			ftmp = open(outfile, "w")
+		ftmp.write(data)
+		ftmp.close()
 
 
 
@@ -109,6 +133,9 @@ def parse_arguments():
 	parser_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
 	parser_getsshhostkey.add_argument("--outfile", required=True, help="write fetched file to path")
 
+	parser_getknownhosts = subparsers.add_parser("getknownhosts", help="getknownhosts command help")
+	parser_getknownhosts.add_argument("--outfile", required=True, help="write fetched file to path")
+
 	return parser.parse_args()
 
 
@@ -129,6 +156,8 @@ def main():
 		ret = remad.storesshhostkey(args.host, args.filename)
 	elif args.command == "getsshhostkey":
 		ret = remad.getsshhostkey(args.host, args.filename, args.outfile)
+	elif args.command == "getknownhosts":
+		ret = remad.getknownhosts(args.outfile)
 	else:
 		ret = 127
 
