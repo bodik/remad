@@ -358,6 +358,7 @@ class Remadd(object):
 			allnames = []
 			short = host.split(".")[0]
 			allnames.append(short)
+			allnames.append(host)
 			if host.find(".metacentrum.cz") == -1:
 				allnames.append("%s.metacentrum.cz" % short)
 			if host == "skirit.ics.muni.cz":
