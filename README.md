@@ -37,3 +37,7 @@ remad --server keyserver storesshhostkey --host $(facter fqdn) --filename /etc/s
 remad --server keyserver getsshhostkey --host $(facter fqdn) --filename ssh_host_rsa_key.pub --outfile /tmp/abc
 ```
 
+### fetch current ssh_known_hosts file
+```
+remad --server keyserver getknownhosts --outfile /tmp/cde
+```

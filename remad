@@ -122,7 +122,7 @@ def parse_arguments():
 	parser_createkeytab = subparsers.add_parser("createkeytab", help="createkeytab command help")
 	parser_createkeytab.add_argument("--host", required=True, help="create (upsert principals) keytab for hostname")
 	parser_createkeytab.add_argument("--services", required=True, nargs="+", help="create (upsert principals) keytab for services at hostname")
-	parser_createkeytab.add_argument("--outfile", required=True, help="write created keytab to file")
+	parser_createkeytab.add_argument("--outfile", required=True, help="write created keytab to file; use - for stdout")
 
 	parser_storesshhostkey = subparsers.add_parser("storesshhostkey", help="storesshhostkey command help")
 	parser_storesshhostkey.add_argument("--host", required=True, help="hostname to store key for")
@@ -131,10 +131,10 @@ def parse_arguments():
 	parser_getsshhostkey = subparsers.add_parser("getsshhostkey", help="getsshhostkey command help")
 	parser_getsshhostkey.add_argument("--host", required=True, help="get file for hostname")
 	parser_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
-	parser_getsshhostkey.add_argument("--outfile", required=True, help="write fetched file to path")
+	parser_getsshhostkey.add_argument("--outfile", required=True, help="write fetched file to path; use - for stdout")
 
 	parser_getknownhosts = subparsers.add_parser("getknownhosts", help="getknownhosts command help")
-	parser_getknownhosts.add_argument("--outfile", required=True, help="write fetched file to path")
+	parser_getknownhosts.add_argument("--outfile", required=True, help="write fetched file to path; use - for stdout")
 
 	return parser.parse_args()
 
