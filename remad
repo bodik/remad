@@ -33,10 +33,13 @@ class Remad(object):
 
 
 
-	def createkeytab(self, host, services, outfile):
+	def createkeytab(self, host, services, rekey, outfile):
 		"""creates keytab for services/host to outfile"""
 
 		cmd = ["createkeytab", "--host", host, "--services"] + services
+		if rekey:
+			cmd += ["--rekey"]
+
 		(proc, proc_stdout, proc_stderr) = self.remctlcall(cmd)
 		sys.stderr.write(proc_stderr)
 
@@ -118,24 +121,25 @@ def parse_arguments():
 	parser.add_argument("--server", default=socket.getfqdn(), help="remctladmd server")
 	parser.add_argument("--debug", action="store_true", default=False, help="debug output")
 
-	subparsers = parser.add_subparsers(dest='command')
+	parser_command = parser.add_subparsers(dest='command')
 
-	parser_createkeytab = subparsers.add_parser("createkeytab", help="createkeytab command help")
-	parser_createkeytab.add_argument("--host", required=True, help="create (upsert principals) keytab for hostname")
-	parser_createkeytab.add_argument("--services", required=True, nargs="+", help="create (upsert principals) keytab for services at hostname")
-	parser_createkeytab.add_argument("--outfile", required=True, help="write created keytab to file; use - for stdout")
+	command_createkeytab = parser_command.add_parser("createkeytab", help="createkeytab command help")
+	command_createkeytab.add_argument("--host", required=True, help="create (upsert principals) keytab for hostname")
+	command_createkeytab.add_argument("--services", required=True, nargs="+", help="create (upsert principals) keytab for services at hostname")
+	command_createkeytab.add_argument("--rekey", action='store_true', default=False, help="force rekey")
+	command_createkeytab.add_argument("--outfile", required=True, help="write created keytab to file; use - for stdout")
 
-	parser_storesshhostkey = subparsers.add_parser("storesshhostkey", help="storesshhostkey command help")
-	parser_storesshhostkey.add_argument("--host", required=True, help="hostname to store key for")
-	parser_storesshhostkey.add_argument("--filename", required=True, help="filepath")
+	command_storesshhostkey = parser_command.add_parser("storesshhostkey", help="storesshhostkey command help")
+	command_storesshhostkey.add_argument("--host", required=True, help="hostname to store key for")
+	command_storesshhostkey.add_argument("--filename", required=True, help="filepath")
 
-	parser_getsshhostkey = subparsers.add_parser("getsshhostkey", help="getsshhostkey command help")
-	parser_getsshhostkey.add_argument("--host", required=True, help="get file for hostname")
-	parser_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
-	parser_getsshhostkey.add_argument("--outfile", required=True, help="write fetched file to path; use - for stdout")
+	command_getsshhostkey = parser_command.add_parser("getsshhostkey", help="getsshhostkey command help")
+	command_getsshhostkey.add_argument("--host", required=True, help="get file for hostname")
+	command_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
+	command_getsshhostkey.add_argument("--outfile", required=True, help="write fetched file to path; use - for stdout")
 
-	parser_getknownhosts = subparsers.add_parser("getknownhosts", help="getknownhosts command help")
-	parser_getknownhosts.add_argument("--outfile", required=True, help="write fetched file to path; use - for stdout")
+	command_getknownhosts = parser_command.add_parser("getknownhosts", help="getknownhosts command help")
+	command_getknownhosts.add_argument("--outfile", required=True, help="write fetched file to path; use - for stdout")
 
 	return parser.parse_args()
 
@@ -165,7 +169,7 @@ def main():
 
 	remad = Remad(args.server)
 	if args.command == "createkeytab":
-		ret = remad.createkeytab(args.host, args.services, args.outfile)
+		ret = remad.createkeytab(args.host, args.services, args.rekey, args.outfile)
 	elif args.command == "storesshhostkey":
 		ret = remad.storesshhostkey(args.host, args.filename)
 	elif args.command == "getsshhostkey":

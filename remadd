@@ -114,10 +114,18 @@ class KadminMit(Kadmin):
 			principal=principal, realm=self.realm, opts=" ".join(opts)))
 
 
-	def ktadd(self, principal, path_keytab):
+	def ktadd(self, principal, rekey, path_keytab):
 		"""add key to keytab, don't change the key"""
 
-		return self.exec_kadmin("ktadd -norandkey -k {path} {principal}@{realm}".format(path=path_keytab, principal=principal, realm=self.realm))
+		opts = []
+		if rekey:
+			opts.append("-norandkey")
+
+		return self.exec_kadmin("ktadd {opts} -k {path} {principal}@{realm}".format( \
+			opts=" ".join(opts),
+			path=path_keytab,
+			principal=principal,
+			realm=self.realm))
 
 
 
@@ -167,8 +175,12 @@ class KadminHeimdal(Kadmin):
 		return ret
 
 
-	def ktadd(self, principal, path_keytab):
+	def ktadd(self, principal, rekey, path_keytab):
 		"""add key to keytab, don't change the key"""
+
+		# there is a --random-key in ext_keytab, but it seriously messes with kvno, we use the old way instead
+		if rekey:
+			self.exec_kadmin("cpw --random-key {principal}@{realm}".format(principal=principal, realm=self.realm))
 
 		return self.exec_kadmin("ext_keytab --keytab={path} {principal}@{realm}".format(path=path_keytab, principal=principal, realm=self.realm))
 
@@ -266,7 +278,7 @@ class Remadd(object):
 		return 0
 
 
-	def createkeytab(self, host, services):
+	def createkeytab(self, host, services, rekey):
 		"""remad createkeytab"""
 		self.is_authorized(host=host, services=services)
 
@@ -286,7 +298,7 @@ class Remadd(object):
 				self.log.debug("must create %s@%s", principal, kadmin.realm)
 				kadmin.add_principal(principal)
 
-			kadmin.ktadd(principal, path_tmpkeytab)
+			kadmin.ktadd(principal, rekey, path_tmpkeytab)
 
 		# return the keytab
 		with open(path_tmpkeytab, "r") as tmpfile:
@@ -400,6 +412,7 @@ def parse_arguments():
 	command_createkeytab = parser_command.add_parser("createkeytab", help="createkeytab command help")
 	command_createkeytab.add_argument("--host", required=True, help="create (upsert principals) keytab for hostname")
 	command_createkeytab.add_argument("--services", required=True, nargs="+", help="create (upsert principals) keytab for services at hostname")
+	command_createkeytab.add_argument("--rekey", action='store_true', default=False, help="force rekey")
 
 	command_storesshhostkey = parser_command.add_parser("storesshhostkey", help="createkeytab command help")
 	command_storesshhostkey.add_argument("--host", required=True, help="hostname to store key for")
@@ -479,7 +492,7 @@ def main():
 		elif args.command == "createkeytab":
 			is_valid_host(args.host)
 			is_valid_service(args.services)
-			ret = remadd.createkeytab(args.host, args.services)
+			ret = remadd.createkeytab(args.host, args.services, args.rekey)
 
 		elif args.command == "storesshhostkey":
 			is_valid_host(args.host)
