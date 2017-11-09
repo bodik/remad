@@ -6,6 +6,7 @@ import base64
 import inspect
 import json
 import logging
+import logging.handlers
 import os
 import re
 import shlex
@@ -250,7 +251,7 @@ class Remadd(object):
 				kwargs_result = [check_by_regexp(acl[argname], argvalue) for argname, argvalue in kwargs.iteritems()]
 				# and if all arguments matches, result as permitted
 				if all(kwargs_result):
-					self.log.debug("is_authorized permitted %s to %s:%s", self.remoteuser, caller, kwargs)
+					self.log.info("is_authorized permitted %s to %s:%s", self.remoteuser, caller, kwargs)
 					return True
 
 		# no match has been found >> default deny
@@ -415,6 +416,19 @@ def parse_arguments():
 
 
 
+def configure_logging():
+	logger = logging.getLogger()
+	logger.setLevel(logging.INFO)
+	formatter = logging.Formatter(os.path.basename(sys.argv[0])+'[%(process)d]: %(levelname)s %(message)s')
+	handler_stream = logging.StreamHandler()
+	handler_syslog = logging.handlers.SysLogHandler(address="/dev/log")
+	handler_stream.setFormatter(formatter)
+	handler_syslog.setFormatter(formatter)
+	logger.addHandler(handler_stream)
+	logger.addHandler(handler_syslog)
+
+
+
 def is_valid_host(value):
 	"""validator"""
 
@@ -452,7 +466,7 @@ def is_valid_data(value):
 def main():
 	""" main """
 
-	logging.basicConfig(level=logging.INFO, format=os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
+	configure_logging()
 	logger = logging.getLogger()
 	args = parse_arguments()
 

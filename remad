@@ -4,6 +4,7 @@
 import argparse
 import base64
 import logging
+import logging.handlers
 import os
 import socket
 import subprocess
@@ -140,13 +141,26 @@ def parse_arguments():
 
 
 
+def configure_logging():
+	logger = logging.getLogger()
+	logger.setLevel(logging.INFO)
+	formatter = logging.Formatter(os.path.basename(sys.argv[0])+'[%(process)d]: %(levelname)s %(message)s')
+	handler_stream = logging.StreamHandler()
+	handler_syslog = logging.handlers.SysLogHandler(address="/dev/log")
+	handler_stream.setFormatter(formatter)
+	handler_syslog.setFormatter(formatter)
+	logger.addHandler(handler_stream)
+	logger.addHandler(handler_syslog)
+
+
+
 def main():
 	"""main"""
 
-	logging.basicConfig(level=logging.INFO, format=os.path.basename(sys.argv[0])+'[%(process)d] %(levelname)s %(message)s')
+	configure_logging()
 	args = parse_arguments()
 	if args.debug:
-		logging.basicConfig(level=logging.DEBUG)
+		logging.getLogger().setLevel(level=logging.DEBUG)
 
 
 	remad = Remad(args.server)
