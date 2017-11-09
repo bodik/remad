@@ -118,7 +118,7 @@ class KadminMit(Kadmin):
 		"""add key to keytab, don't change the key"""
 
 		opts = []
-		if rekey:
+		if not rekey:
 			opts.append("-norandkey")
 
 		return self.exec_kadmin("ktadd {opts} -k {path} {principal}@{realm}".format( \
