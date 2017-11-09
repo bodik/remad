@@ -44,10 +44,9 @@ class Remad(object):
 		sys.stderr.write(proc_stderr)
 
 		# data of created keytab are transfered via stdout encoded in base64
-		outdata = proc_stdout
 		if not outbase64:
-			outdata = base64.b64decode(outdata)
-		self._write_outfile(outfile, outdata)
+			proc_stdout = base64.b64decode(proc_stdout)
+		self._write_outfile(outfile, proc_stdout)
 		self.log.debug("keytab for %s created in %s", host, outfile)
 
 		return proc.returncode
@@ -78,7 +77,7 @@ class Remad(object):
 
 
 
-	def getsshhostkey(self, host, filename, outfile):
+	def getsshhostkey(self, host, filename, outfile, outbase64=False):
 		"""retrieves filename for host from keyserver"""
 
 		cmd = ["getsshhostkey", "--host", host, "--filename", filename]
@@ -86,14 +85,16 @@ class Remad(object):
 		sys.stderr.write(proc_stderr)
 
 		if proc.returncode == 0:
-			self._write_outfile(outfile, base64.b64decode(proc_stdout))
+			if not outbase64:
+				proc_stdout = base64.b64decode(proc_stdout)
+			self._write_outfile(outfile, proc_stdout)
 			self.log.debug("file %s for %s created in %s", filename, host, outfile)
 
 		return proc.returncode
 
 
 
-	def getknownhosts(self, outfile):
+	def getknownhosts(self, outfile, outbase64=False):
 		"""generates global ssh_known_hosts file from keystorage"""
 
 		cmd = ["getknownhosts"]
@@ -101,7 +102,9 @@ class Remad(object):
 		sys.stderr.write(proc_stderr)
 
 		if proc.returncode == 0:
-			self._write_outfile(outfile, base64.b64decode(proc_stdout))
+			if not outbase64:
+				proc_stdout = base64.b64decode(proc_stdout)
+			self._write_outfile(outfile, proc_stdout)
 			self.log.debug("known_hosts file created in %s", outfile)
 
 		return proc.returncode
@@ -144,9 +147,11 @@ def parse_arguments():
 	command_getsshhostkey.add_argument("--host", required=True, help="get file for hostname")
 	command_getsshhostkey.add_argument("--filename", required=True, help="filename to get from storage")
 	command_getsshhostkey.add_argument("--outfile", required=True, help="write fetched file to path; use - for stdout")
+	command_getsshhostkey.add_argument("--outbase64", action="store_true", default=False, help="format output in base64; used for pipes inside puppet")
 
 	command_getknownhosts = parser_command.add_parser("getknownhosts", help="getknownhosts command help")
 	command_getknownhosts.add_argument("--outfile", required=True, help="write fetched file to path; use - for stdout")
+	command_getknownhosts.add_argument("--outbase64", action="store_true", default=False, help="format output in base64; used for pipes inside puppet")
 
 	return parser.parse_args()
 
@@ -181,9 +186,9 @@ def main():
 	elif args.command == "storesshhostkey":
 		ret = remad.storesshhostkey(args.host, args.filename, args.stdin)
 	elif args.command == "getsshhostkey":
-		ret = remad.getsshhostkey(args.host, args.filename, args.outfile)
+		ret = remad.getsshhostkey(args.host, args.filename, args.outfile, args.outbase64)
 	elif args.command == "getknownhosts":
-		ret = remad.getknownhosts(args.outfile)
+		ret = remad.getknownhosts(args.outfile, args.outbase64)
 	else:
 		ret = 127
 
