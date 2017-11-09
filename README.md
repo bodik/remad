@@ -24,22 +24,34 @@ vim /etc/remadd.conf
 
 ### create keytab for a host
 ```
-remad --server keyserver createkeytab --host $(facter fqdn)[@REALM] --service host nfs pbs ftp --outfile /etc/krb5.keytab
+remad --server keyserver createkeytab \
+	--host $(facter fqdn)[@REALM] \
+	--service host nfs pbs ftp \
+	--outfile /etc/krb5.keytab
 ```
 
 ### force rekey for a host
 ```
-remad --server keyserver createkeytab --host $(facter fqdn)[@REALM] --service host nfs pbs ftp --outfile /etc/krb5.keytab --rekey
+remad --server keyserver createkeytab \
+	--host $(facter fqdn)[@REALM] \
+	--service host nfs pbs ftp \
+	--outfile /etc/krb5.keytab \
+	--rekey
 ```
 
 ### upload key for a host
 ```
-remad --server keyserver storesshhostkey --host $(facter fqdn)[@REALM] --filename /etc/ssh/ssh_host_rsa_key.pub
+remad --server keyserver storesshhostkey \
+	--host $(facter fqdn)[@REALM] \
+	--filename /etc/ssh/ssh_host_rsa_key.pub
 ```
 
 ### retrieve key for a host
 ```
-remad --server keyserver getsshhostkey --host $(facter fqdn)[@REALM] --filename ssh_host_rsa_key.pub --outfile /tmp/abc
+remad --server keyserver getsshhostkey \
+	--host $(facter fqdn)[@REALM] \
+	--filename ssh_host_rsa_key.pub \
+	--outfile /tmp/abc
 ```
 
 ### fetch current ssh_known_hosts file
@@ -51,10 +63,17 @@ remad --server keyserver getknownhosts --outfile /tmp/cde
 
 ### pipe created keytab to stdout encoded in base64
 ```
-remad --server keyserver createkeytab --host $(facter fqdn)[@REALM] --service host nfs pbs ftp --outfile - --outbase64
+remad --server keyserver createkeytab \
+	--host $(facter fqdn)[@REALM] \
+	--service host nfs pbs ftp \
+	--outfile - \
+	--outbase64
 ```
 
 ### upload key for a host from stdin
 ```
-cat /etc/ssh/ssh_host_rsa_key.pub | remad --server keyserver storesshhostkey --host $(facter fqdn)[@REALM] --filename ssh_host_rsa_key.pub --stdin
+cat /etc/ssh/ssh_host_rsa_key.pub | remad --server keyserver storesshhostkey \
+	--host $(facter fqdn)[@REALM] \
+	--filename ssh_host_rsa_key.pub \
+	--stdin
 ```
