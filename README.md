@@ -8,8 +8,7 @@ deployment within metacentrum.cz and cerit.cz.
 ### client
 ```
 git clone https://rsyslog.metacentrum.cz/remad.git /opt/remad
-apt-get install remctl-client
-yum install remctl.x86_64
+apt-get install remctl-client || yum install remctl.x86_64
 ln -s /opt/remad/remad /usr/local/bin/remad
 ```
 
