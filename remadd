@@ -278,7 +278,7 @@ class Remadd(object):
 		return 0
 
 
-	def createkeytab(self, host, services, rekey):
+	def createkeytab(self, host, services, rekey=False):
 		"""remad createkeytab"""
 		self.is_authorized(host=host, services=services)
 
@@ -430,6 +430,7 @@ def parse_arguments():
 
 
 def configure_logging():
+	"""configure logging to default stream/stderr and syslog"""
 	logger = logging.getLogger()
 	logger.setLevel(logging.INFO)
 	formatter = logging.Formatter(os.path.basename(sys.argv[0])+'[%(process)d]: %(levelname)s %(message)s')
