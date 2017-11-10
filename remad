@@ -44,9 +44,7 @@ class Remad(object):
 		sys.stderr.write(proc_stderr)
 
 		# data of created keytab are transfered via stdout encoded in base64
-		if not outbase64:
-			proc_stdout = base64.b64decode(proc_stdout)
-		self._write_outfile(outfile, proc_stdout)
+		self._write_outfile(outfile, base64.b64decode(proc_stdout), outbase64)
 		self.log.debug("keytab for %s created in %s", host, outfile)
 
 		return proc.returncode
@@ -85,9 +83,7 @@ class Remad(object):
 		sys.stderr.write(proc_stderr)
 
 		if proc.returncode == 0:
-			if not outbase64:
-				proc_stdout = base64.b64decode(proc_stdout)
-			self._write_outfile(outfile, proc_stdout)
+			self._write_outfile(outfile, base64.b64decode(proc_stdout), outbase64)
 			self.log.debug("file %s for %s created in %s", filename, host, outfile)
 
 		return proc.returncode
@@ -102,9 +98,7 @@ class Remad(object):
 		sys.stderr.write(proc_stderr)
 
 		if proc.returncode == 0:
-			if not outbase64:
-				proc_stdout = base64.b64decode(proc_stdout)
-			self._write_outfile(outfile, proc_stdout)
+			self._write_outfile(outfile, base64.b64decode(proc_stdout), outbase64)
 			self.log.debug("known_hosts file created in %s", outfile)
 
 		return proc.returncode
@@ -112,11 +106,13 @@ class Remad(object):
 
 
 	@staticmethod
-	def _write_outfile(outfile, data):
+	def _write_outfile(outfile, data, outbase64=False):
 		if outfile == "-":
 			ftmp = sys.stdout
 		else:
 			ftmp = open(outfile, "w")
+		if outbase64:
+			data = base64.b64encode(data)
 		ftmp.write(data)
 		ftmp.close()
 
