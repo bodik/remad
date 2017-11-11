@@ -213,7 +213,7 @@ class Remadd(object):
 			raise
 
 		if self.config["debug"]:
-			self.log.setLevel(logging.DEBUG)
+			logging_debug()
 
 
 	def kadmin_factory(self, principal):
@@ -429,17 +429,29 @@ def parse_arguments():
 
 
 
-def configure_logging():
-	"""configure logging to default stream/stderr and syslog"""
-	logger = logging.getLogger()
+def logging_config():
+        """configure logging to default stream/stderr and syslog"""
+        logger = logging.getLogger()
+        formatter = logging.Formatter(os.path.basename(sys.argv[0])+'[%(process)d]: %(levelname)s %(message)s')
 	logger.setLevel(logging.INFO)
-	formatter = logging.Formatter(os.path.basename(sys.argv[0])+'[%(process)d]: %(levelname)s %(message)s')
-	handler_stream = logging.StreamHandler()
-	handler_syslog = logging.handlers.SysLogHandler(address="/dev/log")
-	handler_stream.setFormatter(formatter)
-	handler_syslog.setFormatter(formatter)
-	logger.addHandler(handler_stream)
-	logger.addHandler(handler_syslog)
+
+        handler_stream = logging.StreamHandler()
+        handler_stream.setFormatter(formatter)
+	handler_stream.setLevel(logging.WARN)
+        logger.addHandler(handler_stream)
+
+        handler_syslog = logging.handlers.SysLogHandler(address="/dev/log")
+        handler_syslog.setFormatter(formatter)
+	handler_syslog.setLevel(logging.INFO)
+        logger.addHandler(handler_syslog)
+
+
+def logging_debug():
+	"""set debug logging"""
+	logger = logging.getLogger()
+	logger.setLevel(logging.DEBUG)
+	for handler in logger.handlers:
+		handler.setLevel(logging.DEBUG)
 
 
 
@@ -480,7 +492,7 @@ def is_valid_data(value):
 def main():
 	""" main """
 
-	configure_logging()
+	logging_config()
 	logger = logging.getLogger()
 	args = parse_arguments()
 
