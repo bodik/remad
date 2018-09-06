@@ -101,17 +101,11 @@ class KadminMit(Kadmin):
 
 
 	def add_principal(self, principal):
-		"""add principal, handle special case for nfs"""
+		"""add principal"""
 
-		# TODO: clarify reasons for nfs case, still needed ?
 		service = principal.split("/")[0]
-
-		opts = []
-		if service == "nfs":
-			opts.append("-e des-cbc-crc:v4")
-
-		return self.exec_kadmin("add_principal -randkey -policy default_nohistory +requires_preauth {opts} {principal}@{realm}".format( \
-			principal=principal, realm=self.realm, opts=" ".join(opts)))
+		return self.exec_kadmin("add_principal -randkey -policy default_nohistory +requires_preauth {principal}@{realm}".format( \
+			principal=principal, realm=self.realm))
 
 
 	def ktadd(self, principal, rekey, path_keytab):
@@ -154,24 +148,10 @@ class KadminHeimdal(Kadmin):
 
 
 	def add_principal(self, principal):
-		"""add principal, handle special case for nfs"""
+		"""add principal"""
 
 		service = principal.split("/")[0]
-
 		ret = self.exec_kadmin("add --random-key --use-defaults {principal}@{realm}".format(principal=principal, realm=self.realm))
-
-		if service == "nfs":
-			ensure_enctypes = ["des-cbc-crc", "des-cbc-md5"]
-			for enctype in ensure_enctypes:
-				self.exec_kadmin("add_enctype --random-key {principal}@{realm} {enctype}".format(principal=principal, realm=self.realm, enctype=enctype))
-
-			keytypes = self.exec_kadmin("get -s -o keytypes {principal}@{realm}".format(principal=principal, realm=self.realm))
-			enctypes = [x.split("(")[0].strip() for x in keytypes.splitlines()[-1].split(",")]
-			self.log.debug(enctypes)
-
-			for enctype in enctypes:
-				if enctype not in ensure_enctypes:
-					self.exec_kadmin("del_enctype {principal}@{realm} {enctype}".format(principal=principal, realm=self.realm, enctype=enctype))
 		return ret
 
 
