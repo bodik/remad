@@ -15,14 +15,14 @@
 	# list of administrative credentials and types of available realms
 	"realm": {
 		# "arealm": { "keytab": "/keytabfile", "principal": "princ@arealm", "type": "KadminImpl" },
-		"RSYSLOG3": { "keytab": "/etc/krb5.keytab", "principal": "host/<%= @fqdn %>@RSYSLOG3", "type": "<% case @kdc_impl %><% when "mit" %>KadminMit<% when "heimdal" %>KadminHeimdal<% end %>" }
+		"RSTEST": { "keytab": "/etc/krb5.keytab", "principal": "host/<%= @fqdn %>@RSTEST", "type": "<% case @kdc_impl %><% when "mit" %>KadminMit<% when "heimdal" %>KadminHeimdal<% end %>" }
 	},
 
 
 	# list of authorization groups
 	"groups": {
 		# "agroupname": ["member1", "member2"],
-		"group_selftest": ["host/<%= @fqdn %>@RSYSLOG3"]
+		"group_selftest": ["host/<%= @fqdn %>@RSTEST"]
 	},
 
 
@@ -32,15 +32,15 @@
 		# any slash must be encoded as double slash "^ho..name[0-9]?\\.domain\\.cz$"
 
 		"createkeytab": [
-			{ "group": "group_selftest", "host": "^ztook[0-9]?\\.meta\\.zcu\\.cz(@[A-Z0-9]+)?$", "services": "^(host|ftp|nfs|pbs)$" }
+			{ "group": "group_selftest", "host": "^ip\\-[0-9\\-]+\\.flt\\.cloud\\.muni\\.cz(@[A-Z0-9]+)?$", "services": "^(host|ftp|nfs|pbs)$" }
 		],
 
 		"storesshhostkey": [
-			{ "group": "group_selftest", "host": "^ztook[0-9]?\\.meta\\.zcu\\.cz$", "filename": "^test_remad_.*$" }
+			{ "group": "group_selftest", "host": "^ip\\-[0-9\\-]+\\.flt\\.cloud\\.muni\\.cz$", "filename": "^test_remad_.*$" }
 		],
 
 		"getsshhostkey": [
-			{ "group": "group_selftest", "host": "^ztook[0-9]?\\.meta\\.zcu\\.cz$", "filename": "^test_remad_.*$" }
+			{ "group": "group_selftest", "host": "^ip\\-[0-9\\-]+\\.flt\\.cloud\\.muni\\.cz$", "filename": "^test_remad_.*$" }
 		],
 
 		"getknownhosts": [
